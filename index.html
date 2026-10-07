@@ -5013,6 +5013,129 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     return { created: res.create.length, updated: opts.updates === false ? 0 : res.update.length };
   }
 
+  /* ---------- edging colours and drawer types ----------
+     Two extra sheets travel with the price list: "Edging Colours" and
+     "Drawer Types". Edging colours match on code (or name), drawer types on
+     name. Only the columns a sheet actually has are touched, so importing a
+     sheet twice changes nothing the second time.                          */
+  function nrm(v) { return String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+  var FIN_PATS = {
+    edging: { name: /^(name|colou?r name|edging|edging colou?r|colou?r)$/, code: /^code/, hex: /hex|swatch/, sort: /^(sort|order)/, active: /^(active|enabled|live)/ },
+    drawer: { name: /^(name|drawer|drawers|drawer type|type|type of drawers?)$/, desc: /^desc/, sort: /^(sort|order)/, active: /^(active|enabled|live)/, none: /^no drawers?$|^none$/ }
+  };
+  function finHead(rows, kind) {
+    var pats = FIN_PATS[kind];
+    for (var r = 0; r < Math.min(rows.length, 15); r++) {
+      var map = {}, row = rows[r] || [];
+      row.forEach(function (c, i) {
+        var t = nrm(c);
+        Object.keys(pats).forEach(function (k) { if (map[k] == null && t && pats[k].test(t)) map[k] = i; });
+      });
+      if (map.name != null) return { row: r, map: map };
+    }
+    return null;
+  }
+  function yes(v, dflt) {
+    if (v == null || String(v).trim() === '') return dflt;
+    return !/^(no|n|false|0|off|inactive|disabled)$/i.test(String(v).trim());
+  }
+  function readFinish(rows, head, kind) {
+    var out = [], seen = {};
+    for (var r = head.row + 1; r < rows.length; r++) {
+      var row = rows[r] || [], m = head.map;
+      var name = row[m.name] == null ? '' : String(row[m.name]).trim();
+      if (!name) continue;
+      var key = name.toLowerCase();
+      if (seen[key]) continue; seen[key] = 1;
+      var e = { name: name };
+      if (m.sort != null && row[m.sort] !== null && row[m.sort] !== '') e.sort = +row[m.sort] || 0;
+      if (m.active != null && row[m.active] !== null && String(row[m.active]).trim() !== '') e.active = yes(row[m.active], true);
+      if (kind === 'edging') {
+        if (m.code != null && row[m.code] != null && String(row[m.code]).trim()) e.code = String(row[m.code]).trim();
+        if (m.hex != null && row[m.hex] != null) {
+          var h = String(row[m.hex]).trim().replace(/^#?/, '#');
+          if (/^#[0-9a-f]{6}$/i.test(h)) e.hex = h.toUpperCase();
+        }
+      } else {
+        if (m.desc != null && row[m.desc] != null && String(row[m.desc]).trim()) e.desc = String(row[m.desc]).trim();
+        if (m.none != null && row[m.none] !== null && String(row[m.none]).trim() !== '') e.none = yes(row[m.none], false);
+      }
+      out.push(e);
+    }
+    return out;
+  }
+  function findEdging(DB, e) {
+    return (DB.edgingColours || []).filter(function (c) {
+      return (e.code && String(c.code).toLowerCase() === e.code.toLowerCase()) || c.name.toLowerCase() === e.name.toLowerCase();
+    })[0] || null;
+  }
+  function findDrawer(DB, d) {
+    return (DB.drawerTypes || []).filter(function (c) { return c.name.toLowerCase() === d.name.toLowerCase(); })[0] || null;
+  }
+  function changed(ex, e, keys) {
+    return keys.some(function (k) { return e[k] !== undefined && e[k] !== ex[k]; });
+  }
+  function analyseFinish(edgings, drawers, DB) {
+    var out = { edgeNew: [], edgeUpd: [], edgeSame: 0, drNew: [], drUpd: [], drSame: 0 };
+    edgings.forEach(function (e) {
+      var ex = findEdging(DB, e);
+      if (!ex) out.edgeNew.push(e);
+      else if (changed(ex, e, ['name', 'code', 'hex', 'sort', 'active'])) out.edgeUpd.push(Object.assign({ existing: ex.id }, e));
+      else out.edgeSame++;
+    });
+    drawers.forEach(function (d) {
+      var ex = findDrawer(DB, d);
+      if (!ex) out.drNew.push(d);
+      else if (changed(ex, d, ['name', 'desc', 'sort', 'active', 'none'])) out.drUpd.push(Object.assign({ existing: ex.id }, d));
+      else out.drSame++;
+    });
+    return out;
+  }
+  function nextId(list, prefix) {
+    var n = 0;
+    list.forEach(function (x) { var m = new RegExp('^' + prefix + '-(\\d+)$').exec(x.id); if (m) n = Math.max(n, +m[1]); });
+    return prefix + '-' + (n + 1);
+  }
+  function applyFinish(fin, DB, opts) {
+    var upd = !opts || opts.updates !== false;
+    DB.edgingColours = DB.edgingColours || []; DB.drawerTypes = DB.drawerTypes || [];
+    var r = { edgeNew: 0, edgeUpd: 0, drNew: 0, drUpd: 0 };
+    fin.edgeNew.forEach(function (e) {
+      var slug = e.name.toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 8);
+      DB.edgingColours.push({ id: nextId(DB.edgingColours, 'ec'), name: e.name, code: e.code || 'EDG-' + slug, hex: e.hex || '#C9C4B8', finish: 'solid', image: null,
+        sort: e.sort != null ? e.sort : DB.edgingColours.length + 1, active: e.active !== false });
+      r.edgeNew++;
+    });
+    fin.drNew.forEach(function (d) {
+      DB.drawerTypes.push({ id: nextId(DB.drawerTypes, 'dt'), name: d.name, desc: d.desc || '', none: !!d.none || /^no drawers?$/i.test(d.name),
+        sort: d.sort != null ? d.sort : DB.drawerTypes.length + 1, active: d.active !== false });
+      r.drNew++;
+    });
+    if (upd) {
+      fin.edgeUpd.forEach(function (e) {
+        var ex = DB.edgingColours.filter(function (c) { return c.id === e.existing; })[0]; if (!ex) return;
+        ['name', 'code', 'hex', 'sort', 'active'].forEach(function (k) { if (e[k] !== undefined) ex[k] = e[k]; });
+        r.edgeUpd++;
+      });
+      fin.drUpd.forEach(function (d) {
+        var ex = DB.drawerTypes.filter(function (c) { return c.id === d.existing; })[0]; if (!ex) return;
+        ['name', 'desc', 'sort', 'active', 'none'].forEach(function (k) { if (d[k] !== undefined) ex[k] = d[k]; });
+        r.drUpd++;
+      });
+    }
+    return r;
+  }
+  function edgingRows(DB) {
+    return [['Name', 'Code', 'Colour (hex)', 'Sort', 'Active']].concat((DB.edgingColours || []).map(function (c) {
+      return [c.name, c.code, c.hex || '', c.sort || 0, c.active ? 'Yes' : 'No'];
+    }));
+  }
+  function drawerRows(DB) {
+    return [['Name', 'Description', 'Sort', 'Active', 'No drawers']].concat((DB.drawerTypes || []).map(function (d) {
+      return [d.name, d.desc || '', d.sort || 0, d.active ? 'Yes' : 'No', d.none ? 'Yes' : 'No'];
+    }));
+  }
+
   /* ---------- export ---------- */
   function sheetRows(DB) {
     var catName = {};
@@ -5035,11 +5158,25 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     return true;
   }
 
-  function build(rows, sheetName) {
+  function build(rows, sheetName, extra) {
     var x = X(), wb = x.utils.book_new(), ws = x.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{ wch: 16 }, { wch: 14 }, { wch: 34 }, { wch: 12 }, { wch: 10 }, { wch: 11 }, { wch: 11 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 7 }, { wch: 26 }];
     x.utils.book_append_sheet(wb, ws, sheetName);
+    (extra || []).forEach(function (s) {
+      var w = x.utils.aoa_to_sheet(s.rows);
+      w['!cols'] = s.cols;
+      x.utils.book_append_sheet(wb, w, s.name);
+    });
     return wb;
+  }
+  function finishSheets(DB, example) {
+    var e = edgingRows(DB), d = drawerRows(DB);
+    if (example) {
+      e.push(['Sage', 'EDG-SAGE', '#8E9C73', 7, 'Yes']);
+      d.push(['Example Drawer', 'Delete this row or rename it', 8, 'Yes', 'No']);
+    }
+    return [{ name: 'Edging Colours', rows: e, cols: [{ wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 7 }, { wch: 8 }] },
+            { name: 'Drawer Types', rows: d, cols: [{ wch: 20 }, { wch: 32 }, { wch: 7 }, { wch: 8 }, { wch: 11 }] }];
   }
 
   window.CatalogueIO = {
@@ -5049,6 +5186,9 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     analyse: analyse,
     apply: apply,
     sheetRows: sheetRows,
+    analyseFinish: analyseFinish,
+    applyFinish: applyFinish,
+    finishSheets: finishSheets,
 
     /* read a File object -> { sheetName, head, items, skipped } or { error } */
     readFile: function (file, cb) {
@@ -5060,28 +5200,32 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         var wb;
         try { wb = x.read(new Uint8Array(fr.result), { type: 'array', cellDates: false }); }
         catch (e) { return cb({ error: 'That is not a spreadsheet this can open (' + (e.message || e) + ').' }); }
-        var best = null;
+        var best = null, edgings = [], drawers = [];
         wb.SheetNames.forEach(function (nm) {
           var rows = x.utils.sheet_to_json(wb.Sheets[nm], { header: 1, raw: true, defval: null, blankrows: true });
+          if (/edging/i.test(nm)) { var eh = finHead(rows, 'edging'); if (eh) { edgings = readFinish(rows, eh, 'edging'); return; } }
+          if (/drawer/i.test(nm)) { var dh = finHead(rows, 'drawer'); if (dh) { drawers = readFinish(rows, dh, 'drawer'); return; } }
           var head = mapHeader(rows);
           if (!head) return;
           var got = readSheet(rows, head);
           if (!best || got.items.length > best.items.length)
             best = { sheetName: nm, head: head, items: got.items, skipped: got.skipped };
         });
-        if (!best) return cb({ error: 'No sheet in that file has a CODE column and a description column.', sheets: wb.SheetNames });
+        if (!best && !edgings.length && !drawers.length) return cb({ error: 'No sheet in that file has a CODE column and a description column, and there is no “Edging Colours” or “Drawer Types” sheet either.', sheets: wb.SheetNames });
+        if (!best) best = { sheetName: null, head: null, items: [], skipped: 0 };
+        best.edgings = edgings; best.drawers = drawers;
         cb(best);
       };
       fr.readAsArrayBuffer(file);
     },
 
-    exportAll: function (DB, name) { return download(build(sheetRows(DB), 'Items'), name || 'easy-cab-builder-catalogue.xlsx'); },
+    exportAll: function (DB, name) { return download(build(sheetRows(DB), 'Items', finishSheets(DB)), name || 'easy-cab-builder-catalogue.xlsx'); },
     template: function (name) {
       var rows = sheetRows({ categories: [], items: [] });
       rows.push(['Base', 'HL600', 'Base 600', 'Kitchen', 135.34, 148.82, 162.31, 720, 600, 570, 'Yes', 'Example row — delete me']);
       rows.push(['Larder', 'TL600', 'Larder 600', 'Kitchen', 288.4, 317.24, 346.08, 2150, 600, 570, 'Yes', '']);
       rows.push(['Sinks & Taps', 'SNK15B', 'Belfast Sink 595', 'Kitchen', 189, 189, 189, 220, 595, 460, 'No', '']);
-      return download(build(rows, 'Items'), name || 'easy-cab-builder-template.xlsx');
+      return download(build(rows, 'Items', finishSheets({ edgingColours: [], drawerTypes: [] }, true)), name || 'easy-cab-builder-template.xlsx');
     }
   };
 })();
@@ -5194,6 +5338,12 @@ const ROLES = ['Super Admin', 'Admin', 'Sales Manager', 'Sales User', 'Customer'
 /* =========================================================
    Seed data
    ========================================================= */
+/* Finish options beyond colour: edging colours and drawer types. Both live in the
+   database, so an admin adds or removes them and the quote builder follows. */
+const EDGING_SEED = [['White', 'EDG-WHT', '#F4F2EC'], ['Light Grey', 'EDG-LGR', '#BFC1BE'], ['Anthracite', 'EDG-ANT', '#3B3E40'], ['Black', 'EDG-BLK', '#1E1F20'], ['Natural Oak', 'EDG-OAK', '#C49A66'], ['Walnut', 'EDG-WAL', '#6B4A31']];
+const DRAWER_SEED = [['Legra', 'Legra drawer system'], ['DTC', 'DTC drawer system'], ['Java', 'Java drawer system'], ['Antaro', 'Antaro drawer system'], ['MFC', 'MFC drawer boxes'], ['Merivo', 'Merivo drawer system'], ['No Drawers', 'No drawer boxes fitted']];
+const seedEdgings = () => EDGING_SEED.map((e, i) => ({ id: 'ec-' + (i + 1), name: e[0], code: e[1], hex: e[2], finish: 'solid', image: null, sort: i + 1, active: true }));
+const seedDrawerTypes = () => DRAWER_SEED.map((d, i) => ({ id: 'dt-' + (i + 1), name: d[0], desc: d[1], none: d[0] === 'No Drawers', sort: i + 1, active: true }));
 function seed() {
   const rooms = ['Kitchen', 'Utility', 'Bedroom', 'Bathroom', 'Office', 'Living Room', 'Other'].map((n, i) => ({ id: 'rm-' + (i + 1), name: n, sort: i + 1, active: true, desc: '' }));
   const R = Object.fromEntries(rooms.map(r => [r.name, r.id]));
@@ -5424,7 +5574,7 @@ function seed() {
     const created = new Date(q[3]).toISOString();
     const lines = L(q[10]);
     const tl = [{ at: created, text: 'Quote created', by: c.contact }, { at: addMin(created, 4), text: `Items added (${lines.length} lines)`, by: c.contact }];
-    const quote = { id: 'q-' + q[0], number: 'CB-2026-' + q[0], customerId: c.id, status: q[2], ref: q[5], project: q[4], contact: c.contact, phone: c.phone, email: c.email, address: c.address, city: c.city, postcode: c.postcode, delivery: '', info: '', cabColour: q[6], doorStyle: q[7], doorColour: q[8], discountPct: c.discount, lines, attachments: [], layout: { blocks: [], savedAt: null }, notes: [], timeline: tl, assignedTo: q[9], created, submitted: null, updated: created };
+    const quote = { id: 'q-' + q[0], number: 'CB-2026-' + q[0], customerId: c.id, status: q[2], ref: q[5], project: q[4], contact: c.contact, phone: c.phone, email: c.email, address: c.address, city: c.city, postcode: c.postcode, delivery: '', info: '', cabColour: q[6], doorStyle: q[7], doorColour: q[8], edging: 'match', drawerType: 'dt-1', discountPct: c.discount, lines, attachments: [], layout: { blocks: [], savedAt: null }, notes: [], timeline: tl, assignedTo: q[9], created, submitted: null, updated: created };
     if (q[2] !== 'Draft') {
       const sub = addMin(created, 17);
       quote.submitted = sub;
@@ -5493,7 +5643,7 @@ function seed() {
   return {
     v: 3, sample: sampleQuote ? { cabColour: sampleQuote.cabColour, doorStyle: sampleQuote.doorStyle, doorColour: sampleQuote.doorColour, lines: sampleQuote.lines.map(l => ({ ...l, comment: '' })) } : null,
     settings: { company: 'Its All In The Image Limited', phone: '0161 223 7159', email: 'hello@easycabbuilder.co.uk', address: 'Unit 7 A, B and C, Trans Pennine Trading Estate, Gorrells Way', city: 'Rochdale, Lancashire', postcode: 'OL11 2PX', vat: 20, delivery: 75, prefix: 'CB-2026-', nextNo: 1, leadWeeks: 3 },
-    rooms, categories, items, cabColours, doorColours, doorStyles, customers: [], users, roles, quotes: [], notifications: [], discountHistory: []
+    rooms, categories, items, cabColours, doorColours, doorStyles, edgingColours: seedEdgings(), drawerTypes: seedDrawerTypes(), customers: [], users, roles, quotes: [], notifications: [], discountHistory: []
   };
 }
 
@@ -5511,6 +5661,16 @@ const cust = id => byId('customers', id);
 const staffName = id => (byId('users', id) || {}).name || 'Unassigned';
 const cabCol = id => byId('cabColours', id);
 const catOf = id => byId('categories', id);
+const edgeCol = q => (!q.edging || q.edging === 'match') ? cabCol(q.cabColour) : byId('edgingColours', q.edging);
+const drawerOf = q => q.drawerType ? byId('drawerTypes', q.drawerType) : null;
+const drawerGlyph = (none, w = 22) => none
+  ? `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" style="color:var(--ink-2)"><rect x="3.5" y="5" width="17" height="14" rx="1.6" stroke-dasharray="3 3"/><path d="M5 19 19 5"/></svg>`
+  : `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" style="color:var(--ink-2)"><rect x="3.5" y="4" width="17" height="4.8" rx="1"/><rect x="3.5" y="9.6" width="17" height="4.8" rx="1"/><rect x="3.5" y="15.2" width="17" height="4.8" rx="1"/><path d="M10 6.4h4M10 12h4M10 17.6h4"/></svg>`;
+function edKV(q) {
+  const ed = edgeCol(q), m = !q.edging || q.edging === 'match', dr = drawerOf(q);
+  return `<dt>Edging colour</dt><dd><span class="cell-sw">${miniSw(ed)}${ed ? esc(ed.name) : '—'}${m ? ' <span class="muted">(matches cabinets)</span>' : ''}</span></dd>
+  <dt>Drawer type</dt><dd>${dr ? esc(dr.name) : '—'}</dd>`;
+}
 function doorCol(q) { if (!q.doorColour || q.doorColour === 'match') return cabCol(q.cabColour); return byId('doorColours', q.doorColour); }
 
 function doorSpecs(item, h, w) {
@@ -5656,10 +5816,17 @@ function topUpCatalogue() {
   if (added) save();
 }
 
+function topUpFinishes() {
+  let ch = false;
+  if (!Array.isArray(DB.edgingColours)) { DB.edgingColours = seedEdgings(); ch = true; }
+  if (!Array.isArray(DB.drawerTypes)) { DB.drawerTypes = seedDrawerTypes(); ch = true; }
+  if (ch) save();
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) { const s = JSON.parse(raw); if (s && s.DB && s.DB.v === 3) { DB = s.DB; Object.assign(UI, s.UI || {}); if (DB.settings.company === 'Easy Cab Builder Ltd') Object.assign(DB.settings, { company: 'Its All In The Image Limited', phone: '0161 223 7159', address: 'Unit 7 A, B and C, Trans Pennine Trading Estate, Gorrells Way', city: 'Rochdale, Lancashire', postcode: 'OL11 2PX' }); topUpCatalogue(); return; } }
+    if (raw) { const s = JSON.parse(raw); if (s && s.DB && s.DB.v === 3) { DB = s.DB; Object.assign(UI, s.UI || {}); if (DB.settings.company === 'Easy Cab Builder Ltd') Object.assign(DB.settings, { company: 'Its All In The Image Limited', phone: '0161 223 7159', address: 'Unit 7 A, B and C, Trans Pennine Trading Estate, Gorrells Way', city: 'Rochdale, Lancashire', postcode: 'OL11 2PX' }); topUpCatalogue(); topUpFinishes(); return; } }
   } catch (e) { }
   DB = seed();
 }
@@ -6089,7 +6256,7 @@ function custQuoteRows(list, route) {
   return list.map(q => { const t = totals(q); return `<tr class="click" data-act="go" data-to="${route}:${q.id}">
     <td class="mono strong">${q.number}${q.type === 'design' ? '<div><span class="tag oak" style="font-family:var(--font)">Design only</span></div>' : ''}</td><td><div class="strong">${esc(q.ref || '—')}</div><div class="muted" style="font-size:12.5px">${esc(qTitle(q))}</div></td>
     <td class="tnum">${fmtDate(q.created)}</td><td class="num">${t.lines}</td><td class="num strong">${GBP(t.total)}</td><td class="num">${t.pct}%</td><td>${pill(q.status)}</td>
-    <td class="act"><button class="btn btn-ghost btn-sm" data-act="go" data-to="${route}:${q.id}">${q.status === 'Draft' ? 'Continue' : q.status === 'Revision Required' ? 'Revise' : 'View'} ${ic('chevR', 14)}</button></td></tr>`; }).join('');
+    <td class="act"><button class="btn btn-ghost btn-sm" data-act="go" data-to="${route}:${q.id}">${q.status === 'Draft' ? 'Continue' : q.status === 'Revision Required' ? 'Revise' : q.status === 'Submitted' ? 'View / edit' : 'View'} ${ic('chevR', 14)}</button></td></tr>`; }).join('');
 }
 const custHead = `<thead><tr><th>Quote ID</th><th>Reference</th><th>Date</th><th class="num">Items</th><th class="num">Amount</th><th class="num">Discount</th><th>Status</th><th></th></tr></thead>`;
 
@@ -6159,7 +6326,8 @@ function finishKV(q) {
   const cab = cabCol(q.cabColour), st = byId('doorStyles', q.doorStyle), dc = doorCol(q);
   return `<dt>Cabinet colour</dt><dd><span class="cell-sw">${miniSw(cab)}${cab ? esc(cab.name) + ` <span class="mono muted">${esc(cab.code)}</span>` : '—'}</span></dd>
   <dt>Door style</dt><dd>${st ? esc(st.name) : 'None (no doors)'}</dd>
-  <dt>Door colour</dt><dd><span class="cell-sw">${!st || st.none ? 'No doors' : `${miniSw(dc)}${dc ? esc(dc.name) : '—'}${q.doorColour === 'match' || !q.doorColour ? ' <span class="muted">(matches cabinets)</span>' : ''}`}</span></dd>`;
+  <dt>Door colour</dt><dd><span class="cell-sw">${!st || st.none ? 'No doors' : `${miniSw(dc)}${dc ? esc(dc.name) : '—'}${q.doorColour === 'match' || !q.doorColour ? ' <span class="muted">(matches cabinets)</span>' : ''}`}</span></dd>
+  ${edKV(q)}`;
 }
 function linesTable(q, mode) {
   const t = totals(q), cab = cabCol(q.cabColour), st = byId('doorStyles', q.doorStyle), dc = doorCol(q);
@@ -6246,10 +6414,12 @@ function cQuote(id) {
   const t = totals(q);
   const act = q.status === 'Draft' ? `<button class="btn btn-danger" data-act="delDraft" data-id="${q.id}">${ic('trash', 16)} Delete draft</button><button class="btn btn-primary" data-act="editQuote" data-id="${q.id}">${ic('edit', 16)} Continue editing</button>`
     : q.status === 'Revision Required' ? `<button class="btn btn-primary" data-act="editQuote" data-id="${q.id}">${ic('edit', 16)} Revise quote</button>`
+      : q.status === 'Submitted' ? `<button class="btn btn-secondary" data-act="dupQuote" data-id="${q.id}">${ic('copy', 16)} Duplicate as new quote</button><button class="btn btn-primary" data-act="editQuote" data-id="${q.id}">${ic('edit', 16)} Edit quote</button>`
       : `<button class="btn btn-secondary" data-act="dupQuote" data-id="${q.id}">${ic('copy', 16)} Duplicate as new quote</button>`;
   const lastNote = q.notes[q.notes.length - 1];
   return `<button class="btn btn-ghost btn-sm" data-act="go" data-to="c-quotes" style="margin:-6px 0 10px -8px">${ic('arrowL', 16)} My Quotes</button>
   <div class="page-head"><div><div class="row wrap"><h1 class="mono" style="font-family:var(--mono);font-size:26px;letter-spacing:-.02em">${q.number}</h1>${pill(q.status)}</div><p>${esc(qTitle(q))} · Ref ${esc(q.ref || '—')} · Created ${fmtDate(q.created)}${q.submitted ? ' · Submitted ' + fmtDate(q.submitted) : ''}</p></div><div class="actions"><button class="btn btn-secondary" data-act="pdf" data-id="${q.id}">${ic('download', 16)} Download PDF</button>${act}</div></div>
+  ${q.status === 'Submitted' ? `<div class="alert info">${ic('info', 18)}<span>You can still change this ${q.type === 'design' ? 'design' : 'quote'} until our team starts reviewing it. Use <b>Edit ${q.type === 'design' ? 'design' : 'quote'}</b> and send it again.</span></div>` : ''}
   ${q.status === 'Revision Required' && lastNote ? `<div class="alert">${ic('alert', 18)}<div style="flex:1"><b>Revision requested by ${esc(lastNote.by)}</b><div style="margin-top:2px">${esc(lastNote.text)}</div></div></div>` : ''}
   ${q.type === 'design' && !q.lines.length ? `<div class="alert info">${ic('info', 18)}<span>Design request. Our team will add the cabinets and prices from your layout and drawings.</span></div>` : ''}${q.status === 'Approved' ? `<div class="alert ok">${ic('check', 18)}<span>Approved. Our team will confirm the delivery date with you.</span></div>` : ''}
   <div class="two-col">
@@ -6270,10 +6440,10 @@ function cQuote(id) {
     </div>
   </div>`;
 }
-A.editQuote = t => { const q = byId('quotes', t.dataset.id); if (!q) return; if (q.type === 'design') { UI.ddraft = clone(q); UI.errors = {}; go('c-design'); return; } UI.draft = clone(q); UI.bf = newBf(); UI.bs = { step: 1, max: 2 }; go('c-builder'); };
+A.editQuote = t => { const q = byId('quotes', t.dataset.id); if (!q) return; if (!EDITABLE.includes(q.status)) { toast('This quote is being reviewed and can no longer be edited.', { err: 1 }); render(); return; } if (q.type === 'design') { UI.ddraft = clone(q); UI.errors = {}; go('c-design'); return; } UI.draft = clone(q); UI.bf = newBf(); UI.bs = { step: 1, max: 2 }; go('c-builder'); };
 A.dupQuote = t => {
   const q = byId('quotes', t.dataset.id); const c = me();
-  const d = newDraft(c); Object.assign(d, { project: '', ref: '', cabColour: q.cabColour, doorStyle: q.doorStyle, doorColour: q.doorColour, lines: q.lines.map(l => ({ ...l, id: uid('ln') })), layout: clone(q.layout) });
+  const d = newDraft(c); Object.assign(d, { project: '', ref: '', cabColour: q.cabColour, doorStyle: q.doorStyle, doorColour: q.doorColour, edging: q.edging || 'match', drawerType: q.drawerType || null, lines: q.lines.map(l => ({ ...l, id: uid('ln') })), layout: clone(q.layout) });
   d.timeline = [{ at: now(), text: 'Quote created from ' + q.number, by: c.contact }];
   UI.draft = d; UI.bf = newBf(); UI.bs = { step: 1, max: 2 }; go('c-builder'); toast('Copied ' + q.lines.length + ' lines from ' + q.number);
 };
@@ -6331,7 +6501,7 @@ SUB.pw = f => { const d = Object.fromEntries(new FormData(f)); const c = me(); i
    ========================================================= */
 const STEPS = ['Build Quote', 'Review Quote', 'Submit'];
 function newDraft(c) {
-  return { id: null, number: null, customerId: c.id, status: 'Draft', ref: '', project: '', contact: c.contact, phone: c.phone, email: c.email, address: [c.address, c.city].filter(Boolean).join(', '), city: '', postcode: c.postcode, delivery: '', info: '', cabColour: null, doorStyle: null, doorColour: 'match', discountPct: c.discount, lines: [], attachments: [], layout: { blocks: [], savedAt: null }, notes: [], timeline: [{ at: now(), text: 'Quote created', by: c.contact }], assignedTo: null, created: now(), submitted: null, updated: now() };
+  return { id: null, number: null, customerId: c.id, status: 'Draft', ref: '', project: '', contact: c.contact, phone: c.phone, email: c.email, address: [c.address, c.city].filter(Boolean).join(', '), city: '', postcode: c.postcode, delivery: '', info: '', cabColour: null, doorStyle: null, doorColour: 'match', edging: 'match', drawerType: null, discountPct: c.discount, lines: [], attachments: [], layout: { blocks: [], savedAt: null }, notes: [], timeline: [{ at: now(), text: 'Quote created', by: c.contact }], assignedTo: null, created: now(), submitted: null, updated: now() };
 }
 function newBf() { return { room: 'rm-1', cat: 'cat-base', itemId: null, qty: 1, h: '', w: '', d: '', comment: '', remarks: '', editing: null, search: '' }; }
 function startQuote() {
@@ -6345,10 +6515,10 @@ function cBuilder() {
   if (!UI.draft || UI.draft.customerId !== UI.session.customerId) { UI.draft = newDraft(me()); UI.bf = newBf(); UI.bs = { step: 1, max: 1 }; }
   if (!UI.bf) UI.bf = newBf(); if (!UI.bs) UI.bs = { step: 1, max: 2 }; if (UI.bs.step > 2) UI.bs.step = 2; if (UI.bs.max > 2) UI.bs.max = 2;
   const d = UI.draft, s = UI.bs.step;
-  const title = d.id ? (d.status === 'Revision Required' ? 'Revise quote' : 'Edit draft quote') : 'New quote';
+  const title = d.id ? (d.status === 'Revision Required' ? 'Revise quote' : d.status === 'Submitted' ? 'Edit submitted quote' : 'Edit draft quote') : 'New quote';
   const bodies = [bStep1, bStep5];
   return `<div class="page-head"><div><div class="row wrap"><h1>${title}</h1>${pill(d.status)}</div><p><span class="mono">${d.number || provNumber()}</span>${d.id ? '' : ' · number is confirmed when you save or submit'}</p></div>
-    <div class="actions"><button class="btn btn-ghost" data-act="discardAsk">${ic('x', 16)} ${d.id ? 'Close' : 'Discard'}</button><button class="btn btn-secondary" data-act="planRoom">${ic('cube', 16)} Room Planner${d.roomPlan && d.roomPlan.units && d.roomPlan.units.length ? ` <span class="tag">${d.roomPlan.units.length}</span>` : ''}</button><button class="btn btn-secondary" data-act="saveDraft">${ic('save', 16)} Save draft</button></div></div>
+    <div class="actions"><button class="btn btn-ghost" data-act="discardAsk">${ic('x', 16)} ${d.id ? 'Close' : 'Discard'}</button><button class="btn btn-secondary" data-act="planRoom">${ic('cube', 16)} Room Planner${d.roomPlan && d.roomPlan.units && d.roomPlan.units.length ? ` <span class="tag">${d.roomPlan.units.length}</span>` : ''}</button><button class="btn btn-secondary" data-act="saveDraft">${ic('save', 16)} ${d.status === 'Submitted' ? 'Save changes' : 'Save draft'}</button></div></div>
   <nav class="stepper" aria-label="Quote steps">${STEPS.map((l, i) => { const n = i + 1, on = n === s, done = n < s || (n <= UI.bs.max && n !== s && n < STEPS.length); return `<button class="stp ${on ? 'on' : ''} ${done ? 'done' : ''}" data-act="bStep" data-n="${n}" ${n > UI.bs.max || n === STEPS.length ? 'disabled' : ''} ${on ? 'aria-current="step"' : ''}><span class="n">${done ? ic('check', 13, 3) : n}</span>${l}</button>`; }).join('')}</nav>
   <div class="builder"><div id="bStep" style="min-width:0">${bodies[s - 1]()}</div><aside class="summary" id="bSummary">${summaryHTML()}</aside></div>`;
 }
@@ -6359,6 +6529,8 @@ function summaryHTML() {
       <div class="fr"><span>Cabinet</span>${cab ? miniSw(cab) + `<b>${esc(cab.name)}</b>` : '<b class="muted">Not chosen</b>'}</div>
       <div class="fr"><span>Door style</span><b>${st ? esc(st.name) : '<span class="muted">None (no doors)</span>'}</b></div>
       <div class="fr"><span>Door colour</span>${!st || st.none ? '<b class="muted">No doors</b>' : dc ? miniSw(dc) + `<b>${esc(dc.name)}</b>` : '<b class="muted">Not chosen</b>'}</div>
+      <div class="fr"><span>Edging</span>${(() => { const ed = edgeCol(d); return ed ? miniSw(ed) + `<b>${esc(ed.name)}${!d.edging || d.edging === 'match' ? ' <span class="muted">(matches)</span>' : ''}</b>` : '<b class="muted">Not chosen</b>'; })()}</div>
+      <div class="fr"><span>Drawers</span>${(() => { const dr = drawerOf(d); return dr ? `<b>${esc(dr.name)}</b>` : '<b class="muted">Not chosen</b>'; })()}</div>
     </div>
     <div class="sum-row"><span>Items</span><span><b>${t.lines}</b> lines · ${t.units} units</span></div>
     ${priceRows(t)}
@@ -6393,7 +6565,7 @@ IN.df = t => { UI.draft[t.dataset.k] = t.value; if (UI.errors[t.dataset.k]) { de
 function validateStep(n) {
   const d = UI.draft, e = {};
   if (n === 1) { if (!d.ref.trim()) e.ref = 'Please enter a reference.'; if (!String(d.address || '').trim()) e.address = 'Please enter a delivery address.'; if (!d.delivery) e.delivery = 'Please choose a delivery date.'; if (d.email && !/^\S+@\S+\.\S+$/.test(d.email)) e.email = 'Enter a valid email address.'; if (!String(d.contact).trim()) e.contact = 'Please enter a contact name.'; }
-  if (n === 1) { if (!d.cabColour) e.cabColour = 'Please choose a cabinet colour.'; }
+  if (n === 1) { if (!d.cabColour) e.cabColour = 'Please choose a cabinet colour.'; if (!d.drawerType) e.drawerType = 'Please choose a drawer type, or No Drawers.'; }
   if (n === 1) { if (!d.lines.length) e.lines = 'Add at least one item to continue.'; }
   return e;
 }
@@ -6414,19 +6586,44 @@ function cbxList(kind) {
     UI.cbxOpts = opts.map(o => o.id);
     return opts.map(o => `<button type="button" class="cbx-opt ${o.id === cur ? 'on' : ''}" role="option" aria-selected="${o.id === cur}" data-act="cbxPick" data-k="style" data-id="${o.id}"><span class="cbx-pf">${o.th}</span><span style="min-width:0"><b>${esc(o.name)}</b><small style="font-family:var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(o.code)}</small></span><span class="tag">${o.tag}</span>${o.id === cur ? `<span class="cbx-tick">${ic('check', 14, 2.6)}</span>` : '<span></span>'}</button>`).join('');
   }
+  if (kind === 'drawer') {
+    const cur = UI.draft.drawerType || '';
+    const list = DB.drawerTypes.filter(x => x.active).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+    UI.cbxOpts = list.map(x => x.id);
+    if (!list.length) return `<div class="empty" style="padding:24px"><p>No drawer types yet. An admin can add them.</p></div>`;
+    return list.map(x => `<button type="button" class="cbx-opt ${x.id === cur ? 'on' : ''}" role="option" aria-selected="${x.id === cur}" data-act="cbxPick" data-k="drawer" data-id="${x.id}"><span class="cbx-pf">${drawerGlyph(x.none, 22)}</span><span style="min-width:0"><b>${esc(x.name)}</b><small style="font-family:var(--font)">${esc(x.desc || '')}</small></span>${x.id === cur ? `<span class="cbx-tick">${ic('check', 16, 2.4)}</span>` : ''}</button>`).join('');
+  }
   const d = UI.draft, q = (UI.cbxQ || '').toLowerCase().trim(), g = UI.cbxG || '';
-  const src = kind === 'cab' ? DB.cabColours : DB.doorColours;
-  const cur = kind === 'cab' ? d.cabColour : (d.doorColour || 'match');
+  const src = kind === 'cab' ? DB.cabColours : kind === 'edge' ? DB.edgingColours : DB.doorColours;
+  const cur = kind === 'cab' ? d.cabColour : kind === 'edge' ? (d.edging || 'match') : (d.doorColour || 'match');
   const list = src.filter(c => c.active && (!g || String(c.group) === g) && (!q || (c.name + ' ' + c.code).toLowerCase().includes(q)));
   const opts = [];
-  if (kind === 'door' && !q && !g) { const cab = cabCol(d.cabColour); opts.push({ id: 'match', name: 'Match cabinet colour', code: cab ? cab.name + ' · ' + cab.code : 'Uses the cabinet colour', bg: cab ? swatchBg(cab) : 'repeating-linear-gradient(45deg,var(--surface-2) 0 5px,var(--surface-3) 5px 10px)', tag: 'Default' }); }
-  list.forEach(c => opts.push({ id: c.id, name: c.name, code: c.code + (c.adj ? ' · +' + c.adj + '%' : ''), bg: swatchBg(c), tag: GROUPS[c.group] }));
+  if ((kind === 'door' || kind === 'edge') && !q && !g) { const cab = cabCol(d.cabColour); opts.push({ id: 'match', name: 'Match cabinet colour', code: cab ? cab.name + ' · ' + cab.code : 'Uses the cabinet colour', bg: cab ? swatchBg(cab) : 'repeating-linear-gradient(45deg,var(--surface-2) 0 5px,var(--surface-3) 5px 10px)', tag: 'Default' }); }
+  list.forEach(c => opts.push({ id: c.id, name: c.name, code: c.code + (c.adj ? ' · +' + c.adj + '%' : ''), bg: swatchBg(c), tag: kind === 'edge' ? 'Edging' : GROUPS[c.group] }));
   UI.cbxOpts = opts.map(o => o.id);
   if (UI.cbxHi >= opts.length) UI.cbxHi = Math.max(0, opts.length - 1);
   if (!opts.length) return `<div class="empty" style="padding:24px">${ic('palette', 22)}<p>No colours match “${esc(UI.cbxQ)}”.</p></div>`;
   return opts.map((o, i) => `<button type="button" class="cbx-opt ${o.id === cur ? 'on' : ''} ${i === UI.cbxHi ? 'hi' : ''}" role="option" aria-selected="${o.id === cur}" data-act="cbxPick" data-k="${kind}" data-id="${o.id}"><i style="background:${o.bg}"></i><span style="min-width:0"><b>${esc(o.name)}</b><small>${esc(o.code)}</small></span><span class="tag">${o.tag}</span>${o.id === cur ? `<span class="cbx-tick">${ic('check', 14, 2.6)}</span>` : ''}</button>`).join('');
 }
 function cbxInner(kind) {
+  if (kind === 'edge') {
+    const d = UI.draft, open = UI.cbx === 'edge', m = !d.edging || d.edging === 'match';
+    const shown = m ? cabCol(d.cabColour) : byId('edgingColours', d.edging), n = DB.edgingColours.filter(c => c.active).length;
+    const title = m ? 'Match cabinet colour' : shown ? shown.name : 'Select an edging colour';
+    const sub = m ? (shown ? shown.name + ' · ' + shown.code : 'Choose a cabinet colour first') : shown ? shown.code : n + ' edging colours';
+    return `<button type="button" class="cbx-btn" data-act="cbxToggle" data-k="edge" aria-haspopup="listbox" aria-expanded="${open}" id="cbx-btn-edge">
+      <i class="cbx-sw" style="background:${shown ? swatchBg(shown) : 'repeating-linear-gradient(45deg,var(--surface-2) 0 6px,var(--surface-3) 6px 12px)'}"></i>
+      <span class="cbx-t"><b>${esc(title)}</b><small>${esc(sub)}</small></span>${ic('chevD', 18)}</button>
+    ${open ? `<div class="cbx-panel"><div class="cbx-search input-wrap">${ic('search', 16)}<input class="input" id="cbx-q" data-in="cbxQ" placeholder="Search ${n} edging colours" value="${esc(UI.cbxQ || '')}" autocomplete="off" aria-label="Search edging colours"></div>
+      <div class="cbx-list" id="cbxList" role="listbox">${cbxList('edge')}</div></div>` : ''}`;
+  }
+  if (kind === 'drawer') {
+    const d = UI.draft, open = UI.cbx === 'drawer', dr = byId('drawerTypes', d.drawerType), err = UI.errors.drawerType, n = DB.drawerTypes.filter(x => x.active).length;
+    return `<button type="button" class="cbx-btn ${err ? 'err' : ''}" data-act="cbxToggle" data-k="drawer" aria-haspopup="listbox" aria-expanded="${open}" id="cbx-btn-drawer">
+      <span class="cbx-sw cbx-pfbig">${drawerGlyph(dr && dr.none, 24)}</span>
+      <span class="cbx-t"><b>${dr ? esc(dr.name) : 'Select a drawer type'}</b><small style="font-family:var(--font)">${dr ? esc(dr.desc || '') : n + ' options'}</small></span>${ic('chevD', 18)}</button>
+    ${open ? `<div class="cbx-panel"><div class="cbx-list" id="cbxList" role="listbox">${cbxList('drawer')}</div></div>` : ''}`;
+  }
   if (kind === 'style') {
     const st = byId('doorStyles', UI.draft.doorStyle), open = UI.cbx === 'style', big = x => x.replace('width="40" height="56"', 'width="24" height="34"');
     const th = st ? (st.image ? `<img src="${st.image}" alt="" style="width:100%;height:100%;object-fit:cover">` : big(doorProfile(st.profile))) : big(doorProfile('none'));
@@ -6449,11 +6646,11 @@ function cbxInner(kind) {
       <div class="chips cbx-groups">${gchip('', 'All')}${gchip('1', 'Plain')}${gchip('2', 'Woodgrain')}${gchip('3', 'Structure')}</div>
       <div class="cbx-list" id="cbxList" role="listbox">${cbxList(kind)}</div></div>` : ''}`;
 }
-function redrawCbx() { ['cab', 'style', 'door'].forEach(k => { const el = document.getElementById('cbx-' + k); if (el) el.innerHTML = cbxInner(k); }); const q = $('#cbx-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
+function redrawCbx() { ['cab', 'style', 'door', 'edge', 'drawer'].forEach(k => { const el = document.getElementById('cbx-' + k); if (el) el.innerHTML = cbxInner(k); }); const q = $('#cbx-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
 A.cbxToggle = t => { const k = t.dataset.k; UI.cbx = UI.cbx === k ? null : k; UI.cbxQ = ''; UI.cbxG = ''; UI.cbxHi = 0; redrawCbx(); const l = $('#cbxList .on'); if (l) l.scrollIntoView({ block: 'nearest' }); };
 A.cbxGroup = t => { UI.cbxG = t.dataset.v; UI.cbxHi = 0; redrawCbx(); };
 IN.cbxQ = t => { UI.cbxQ = t.value; UI.cbxHi = 0; $('#cbxList').innerHTML = cbxList(UI.cbx); };
-A.cbxPick = t => { const k = t.dataset.k, id = t.dataset.id; UI.cbx = null; if (k === 'cab') A.pickCab({ dataset: { id } }); else if (k === 'style') { if (!id) { UI.draft.doorStyle = null; finishChanged('No door style. Door fronts removed.'); } else { UI.draft.doorStyle = id; finishChanged('Door fronts repriced for ' + byId('doorStyles', id).name); } } else A.pickDoorCol({ dataset: { id } }); };
+A.cbxPick = t => { const k = t.dataset.k, id = t.dataset.id; UI.cbx = null; if (k === 'cab') A.pickCab({ dataset: { id } }); else if (k === 'style') { if (!id) { UI.draft.doorStyle = null; finishChanged('No door style. Door fronts removed.'); } else { UI.draft.doorStyle = id; finishChanged('Door fronts repriced for ' + byId('doorStyles', id).name); } } else if (k === 'edge') A.pickEdge({ dataset: { id } }); else if (k === 'drawer') A.pickDrawer({ dataset: { id } }); else A.pickDoorCol({ dataset: { id } }); };
 document.addEventListener('click', e => { if (UI.cbx && e.target.isConnected && !e.target.closest('.cbx')) { UI.cbx = null; redrawCbx(); } });
 document.addEventListener('keydown', e => {
   if (!UI.cbx || !e.target.closest || !e.target.closest('.cbx')) return;
@@ -6474,12 +6671,17 @@ function finishSections() {
     <div class="field"><span class="lbl">Door colour <span class="opt">optional</span></span><div class="cbx" id="cbx-door">${cbxInner('door')}</div>
       <span class="hint">${!st ? 'Only needed when a door style is selected.' : st.none ? 'Not needed. Cabinet Only is selected, so no doors are added.' : 'Leave on “Match cabinet colour”, or choose a contrasting door colour.'}</span></div>
   </div>
+    <div class="fin-row"><div class="field"><span class="lbl">Edging colour</span><div class="cbx" id="cbx-edge">${cbxInner('edge')}</div><span class="hint">Edge banding colour. Leave on “Match cabinet colour” unless you want a contrast. No extra charge.</span></div>
+    <div class="field"><span class="lbl">Type of drawers</span><div class="cbx" id="cbx-drawer">${cbxInner('drawer')}</div>
+      ${e.drawerType ? `<span class="err-msg">${e.drawerType}</span>` : '<span class="hint">Choose the drawer system for this order, or No Drawers. No extra charge.</span>'}</div></div>
   </section>`;
 }
-function finishChanged(msg) { UI.draft.updated = now(); delete UI.errors.cabColour; delete UI.errors.doorStyle; const y = window.scrollY; render(); window.scrollTo(0, y); save(); if (msg && UI.draft.lines.length) toast(msg); }
+function finishChanged(msg) { UI.draft.updated = now(); delete UI.errors.cabColour; delete UI.errors.doorStyle; delete UI.errors.drawerType; const y = window.scrollY; render(); window.scrollTo(0, y); save(); if (msg && UI.draft.lines.length) toast(msg); }
 A.pickCab = t => { const prev = UI.draft.cabColour; UI.draft.cabColour = t.dataset.id; if (prev !== t.dataset.id) { if (prev) tlog(UI.draft, 'Cabinet colour changed to ' + cabCol(t.dataset.id).name, me().contact); finishChanged('Line prices updated for ' + cabCol(t.dataset.id).name); } };
 A.pickStyle = t => { if (UI.draft.doorStyle === t.dataset.id) { UI.draft.doorStyle = null; finishChanged('Door style cleared. No door fronts are added.'); return; } UI.draft.doorStyle = t.dataset.id; finishChanged('Door fronts repriced for ' + byId('doorStyles', t.dataset.id).name); };
 A.pickDoorCol = t => { UI.draft.doorColour = t.dataset.id; finishChanged('Door colour updated'); };
+A.pickEdge = t => { const prev = UI.draft.edging || 'match', id = t.dataset.id || 'match'; UI.draft.edging = id; if (prev !== id) { const ed = edgeCol(UI.draft); tlog(UI.draft, 'Edging colour set to ' + (id === 'match' ? 'match cabinets' : ed ? ed.name : id), me().contact); } finishChanged('Edging colour updated'); };
+A.pickDrawer = t => { const prev = UI.draft.drawerType, id = t.dataset.id || null; UI.draft.drawerType = id; if (prev !== id) { const dr = drawerOf(UI.draft); tlog(UI.draft, 'Drawer type set to ' + (dr ? dr.name : '-'), me().contact); } finishChanged('Drawer type updated'); };
 
 /* step 3 */
 function roomCats() { const r = UI.bf.room; return DB.categories.filter(c => c.active && (c.rooms.includes('all') || c.rooms.includes(r))).sort((a, b) => a.sort - b.sort); }
@@ -6618,6 +6820,14 @@ function bStep5() {
 }
 
 /* save / submit */
+/* A customer may keep editing a quote while it is Draft, sent back for Revision, or Submitted and not yet picked up by our team.
+   Once staff start the review the quote is locked. This is checked against the saved copy, so it also catches a review that began while the customer was editing. */
+const EDITABLE = ['Draft', 'Revision Required', 'Submitted'];
+function editLocked(d) {
+  const cur = d && d.id && byId('quotes', d.id);
+  if (cur && !EDITABLE.includes(cur.status)) { toast('Our team has started reviewing this quote, so it can no longer be edited. Use Duplicate to start a new one.', { err: 1 }); UI.draft = null; UI.ddraft = null; UI.bs = null; go('c-quote:' + cur.id); return true; }
+  return false;
+}
 function persistDraft() {
   const d = UI.draft;
   if (!d.number) { while (DB.quotes.some(q => q.number === provNumber())) DB.settings.nextNo++; d.number = provNumber(); DB.settings.nextNo++; }
@@ -6627,9 +6837,10 @@ function persistDraft() {
   else { Object.keys(q).forEach(k => delete q[k]); Object.assign(q, clone(d)); }
   return q;
 }
-A.saveDraft = () => { if (UI.draft.attachments.some(a => a.status === 'uploading')) { toast('Wait for uploads to finish, then save.', { err: 1 }); return; } const first = !UI.draft.id; const q = persistDraft(); if (first) tlog(q, 'Draft saved', me().contact); UI.draft = clone(q); save(); const y = window.scrollY; render(); window.scrollTo(0, y); toast(`Draft saved as ${q.number}`); };
+A.saveDraft = () => { if (editLocked(UI.draft)) return; if (UI.draft.attachments.some(a => a.status === 'uploading')) { toast('Wait for uploads to finish, then save.', { err: 1 }); return; } const first = !UI.draft.id; const sub = UI.draft.status === 'Submitted'; const q = persistDraft(); if (first) tlog(q, 'Draft saved', me().contact); else if (sub) tlog(q, 'Quote edited by customer (not yet resent)', me().contact); UI.draft = clone(q); save(); const y = window.scrollY; render(); window.scrollTo(0, y); toast(sub ? `Changes saved to ${q.number}` : `Draft saved as ${q.number}`); };
 A.discardAsk = () => { const d = UI.draft; const leave = () => { UI.draft = null; UI.bs = null; go(d.id ? 'c-quote:' + d.id : 'c-dash'); }; if (!d.id && !d.lines.length && !d.attachments.length) { leave(); return; } confirmBox(d.id ? 'Close without saving?' : 'Discard this quote?', d.id ? 'Changes since your last save will be lost. The saved version stays on your account.' : 'The lines, files and layout on this unsaved quote will be removed.', d.id ? 'Close' : 'Discard quote', leave, true); };
 A.submitAsk = () => {
+  if (editLocked(UI.draft)) return;
   for (let n = 1; n <= 1; n++) { const e = validateStep(n); if (Object.keys(e).length) { tryStep(2); return; } }
   if (UI.draft.attachments.some(a => a.status === 'uploading')) { toast('Wait for uploads to finish before submitting.', { err: 1 }); return; }
   const t = bTotals();
@@ -6637,12 +6848,13 @@ A.submitAsk = () => {
   openModal(`${modalHead('Submit quote')}<div class="modal-b stack" style="gap:14px"><p style="font-size:15px;font-weight:600">Are you sure you want to submit this quotation?</p><div class="note-it"><div class="sum-row"><span>Lines</span><span>${t.lines} (${t.units} units)</span></div><div class="sum-row"><span>Customer discount</span><span>${t.pct}%</span></div><div class="sum-row"><span>Grand total inc. VAT</span><b>${GBP(t.total)}</b></div></div><p class="hint">You won’t be able to edit it unless our team requests a revision.</p></div><div class="modal-f"><button class="btn btn-secondary" data-act="closeModal">Cancel</button><button class="btn btn-olive" data-act="_confirm" autofocus>${ic('send', 16)} Submit Quote</button></div>`, 'sm');
 };
 function submitQuote() {
-  const d = UI.draft, c = me(), resub = d.status === 'Revision Required';
-  d.status = 'Submitted'; d.discountPct = c.discount; d.submitted = now();
-  tlog(d, resub ? 'Revised quote resubmitted' : 'Quote submitted', c.contact);
+  const d = UI.draft, c = me(), resub = d.status === 'Revision Required', edited = d.status === 'Submitted';
+  if (editLocked(d)) return;
+  d.status = 'Submitted'; d.discountPct = c.discount; if (!edited) d.submitted = now();
+  tlog(d, edited ? 'Quote edited and sent again by customer' : resub ? 'Revised quote resubmitted' : 'Quote submitted', c.contact);
   const q = persistDraft();
-  notify(c.id, `Your quote ${q.number} has been ${resub ? 'resubmitted' : 'submitted'}.`, q.id);
-  notify('admin', resub ? `Revised quote ${q.number} resubmitted by ${c.company}.` : `New quote ${q.number} from ${c.company}.`, q.id);
+  notify(c.id, `Your quote ${q.number} has been ${edited ? 'updated' : resub ? 'resubmitted' : 'submitted'}.`, q.id);
+  notify('admin', edited ? `Quote ${q.number} was edited by ${c.company} before review.` : resub ? `Revised quote ${q.number} resubmitted by ${c.company}.` : `New quote ${q.number} from ${c.company}.`, q.id);
   UI.draft = null; UI.bs = null; save(); go('c-success:' + q.id);
 }
 function cSuccess(id) {
@@ -6839,7 +7051,7 @@ function adminView(r, p) {
       <a data-act="go" data-to="a-dash" style="text-decoration:none">${logo(true)}</a>
       ${n('a-dash', 'chart', 'Dashboard')}
       <div class="grp">Sales</div>${n('a-quotes', 'file', 'Quotes', pend ? `<span class="badge">${pend}</span>` : '')}${n('a-customers', 'users', 'Customers')}${n('a-discounts', 'percent', 'Discounts')}${n('a-files', 'clip', 'Designs / Attachments')}
-      <div class="grp">Catalogue</div>${n('a-items', 'box', 'Items')}${n('a-categories', 'grid', 'Categories')}${n('a-rooms', 'room', 'Rooms')}${n('a-cabColours', 'palette', 'Cabinet Colours')}${n('a-doorStyles', 'door', 'Door Styles')}${n('a-doorColours', 'palette', 'Door Colours')}${n('a-pricing', 'pound', 'Pricing')}
+      <div class="grp">Catalogue</div>${n('a-items', 'box', 'Items')}${n('a-categories', 'grid', 'Categories')}${n('a-rooms', 'room', 'Rooms')}${n('a-cabColours', 'palette', 'Cabinet Colours')}${n('a-doorStyles', 'door', 'Door Styles')}${n('a-doorColours', 'palette', 'Door Colours')}${n('a-edgingColours', 'palette', 'Edging Colours')}${n('a-drawerTypes', 'layers', 'Drawer Types')}${n('a-pricing', 'pound', 'Pricing')}
       <div class="grp">System</div>${n('a-users', 'user', 'Users')}${n('a-roles', 'shield', 'Roles & Permissions')}${n('a-settings', 'settings', 'Settings')}
       <button class="nav" data-act="alogout">${ic('logout', 18)}<span>Logout</span></button>
       <div class="side-foot"><div class="acct"><span class="av">${initials(u.name)}</span><div style="min-width:0"><b>${esc(u.name)}</b><span class="muted">${esc(u.role)}</span></div></div></div>
@@ -7160,6 +7372,18 @@ const ENT = {
     fields: [{ k: 'name', l: 'Style name', req: 1 }, { k: 'profile', l: 'Profile drawing', type: 'select', opts: () => [['slab', 'Slab'], ['shaker', 'Shaker'], ['jpull', 'J-Pull'], ['inset', 'Inset'], ['raised', 'Raised panel'], ['gola', 'Gola / flat'], ['none', 'No doors']] }, { k: 'desc', l: 'Description', type: 'textarea', span: 1 }, { k: 'base', l: 'Base price per door (£)', type: 'number', step: .01 }, { k: 'rate', l: 'Rate per m² (£)', type: 'number', step: .01 }, { k: 'adj', l: 'Price adjustment (%)', type: 'number', step: .5 }, { k: 'image', l: 'Image', type: 'image' }, { k: 'active', l: 'Active', type: 'toggle' }],
     defaults: () => ({ profile: 'slab', base: 40, rate: 50, adj: 0, active: true, desc: '', image: null }), prep: o => { o.base = +o.base || 0; o.rate = +o.rate || 0; o.adj = +o.adj || 0; o.none = o.profile === 'none'; },
     used: s => DB.quotes.filter(q => q.doorStyle === s.id).length, saved: o => `${o.name} saved.` },
+  edgingColours: { title: 'Edging Colours', one: 'edging colour', sub: 'Edge banding colours customers can pick next to the cabinet colour. No price attached. Active ones appear in the quote builder straight away.', search: c => c.name + ' ' + c.code,
+    cols: [['Edging colour', swCell], ['Used on', c => DB.quotes.filter(q => q.edging === c.id).length + ' quotes'], ['Sort', c => c.sort || 0, 'num'], ['Status', c => activePill(c.active)]],
+    fields: [{ k: 'name', l: 'Colour name', req: 1 }, { k: 'code', l: 'Code', req: 1, hint: 'Your own reference, e.g. EDG-WHT' }, { k: 'hex', l: 'Swatch colour', type: 'color' }, { k: 'image', l: 'Swatch image', type: 'image' }, { k: 'sort', l: 'Sort order', type: 'number' }, { k: 'active', l: 'Active (shown in the quote builder)', type: 'toggle' }],
+    defaults: () => ({ hex: '#C9C4B8', finish: 'solid', image: null, sort: DB.edgingColours.length + 1, active: true }), prep: o => { o.sort = +o.sort || 0; },
+    check: (o, id) => DB.edgingColours.some(c => c.code.toLowerCase() === String(o.code).toLowerCase() && c.id !== id) ? { code: 'Another edging colour uses this code.' } : {},
+    used: c => DB.quotes.filter(q => q.edging === c.id).length, saved: o => o.active ? `${o.name} saved. Customers can now choose it.` : `${o.name} saved as inactive.` },
+  drawerTypes: { title: 'Drawer Types', one: 'drawer type', sub: 'The drawer systems offered in the quote builder, e.g. Legra, DTC, Java. Add or remove them here; no price attached.', search: d => d.name + ' ' + (d.desc || ''),
+    cols: [['Drawer type', d => `<div class="row"><span class="th-sm">${drawerGlyph(d.none, 22)}</span><span class="strong">${esc(d.name)}</span></div>`], ['Description', d => `<span class="ink2" style="font-size:12.5px">${esc(d.desc || '—')}</span>`], ['Used on', d => DB.quotes.filter(q => q.drawerType === d.id).length + ' quotes'], ['Sort', d => d.sort || 0, 'num'], ['Status', d => activePill(d.active)]],
+    fields: [{ k: 'name', l: 'Drawer type name', req: 1 }, { k: 'desc', l: 'Short description' }, { k: 'sort', l: 'Sort order', type: 'number' }, { k: 'none', l: 'This option means “no drawers”', type: 'toggle' }, { k: 'active', l: 'Active (shown in the quote builder)', type: 'toggle' }],
+    defaults: () => ({ desc: '', none: false, sort: DB.drawerTypes.length + 1, active: true }), prep: o => { o.sort = +o.sort || 0; },
+    check: (o, id) => DB.drawerTypes.some(d => d.name.toLowerCase() === String(o.name).toLowerCase() && d.id !== id) ? { name: 'Another drawer type has this name.' } : {},
+    used: d => DB.quotes.filter(q => q.drawerType === d.id).length, saved: o => o.active ? `${o.name} saved. Customers can now choose it.` : `${o.name} saved as inactive.` },
   users: { title: 'Users', one: 'user', sub: 'Staff accounts for the admin panel. Permissions come from each user’s role.', search: u => u.name + ' ' + u.email,
     cols: [['User', u => `<div class="row"><span class="av">${initials(u.name)}</span><div><div class="strong">${esc(u.name)}</div><div class="muted" style="font-size:12px">${esc(u.email)}</div></div></div>`], ['Role', u => `<span class="tag ${u.role === 'Super Admin' ? 'oak' : 'olive'}">${esc(u.role)}</span>`], ['Assigned quotes', u => DB.quotes.filter(q => q.assignedTo === u.id).length, 'num'], ['Permissions', u => (DB.roles[u.role] || []).length + ' of ' + PERMS.length, 'num'], ['Status', u => activePill(u.active)]],
     fields: [{ k: 'name', l: 'Full name', req: 1 }, { k: 'email', l: 'Work email', req: 1 }, { k: 'role', l: 'Role', type: 'select', opts: () => ROLES.filter(r => r !== 'Customer').map(r => [r, r]) }, { k: 'active', l: 'Active', type: 'toggle' }],
@@ -7217,14 +7441,14 @@ SUB.ent = f => {
   Object.assign(err, E.check ? E.check(o, id) : {});
   if (Object.keys(err).length) { const keep = UI.entImg; UI.entErr = err; const base = id ? byId(entColl(key), id) : E.defaults(); const tmp = Object.assign({}, base, o); if (id) { const coll = DB[entColl(key)]; const i = coll.findIndex(x => x.id === id); const orig = coll[i]; coll[i] = Object.assign({}, orig, tmp); entForm(key, id); coll[i] = orig; } else { const d = E.defaults; E.defaults = () => tmp; entForm(key); E.defaults = d; } UI.entImg = keep; UI.entErr = null; return; }
   if (key === 'rooms' && o.rooms) delete o.rooms;
-  const prefix = { items: 'it', categories: 'cat', rooms: 'rm', cabColours: 'cc', doorColours: 'dc', doorStyles: 'ds', users: 'u', customers: 'c' }[key];
+  const prefix = { items: 'it', categories: 'cat', rooms: 'rm', cabColours: 'cc', doorColours: 'dc', doorStyles: 'ds', edgingColours: 'ec', drawerTypes: 'dt', users: 'u', customers: 'c' }[key];
   let rec;
   if (id) { rec = byId(entColl(key), id); Object.assign(rec, o); }
   else { rec = Object.assign(E.defaults(), o, { id: uid(prefix) }); DB[entColl(key)].push(rec); if (key === 'customers') { rec.created = now(); if (rec.discount) DB.discountHistory.unshift({ id: uid('dh'), customerId: rec.id, from: 0, to: rec.discount, by: admin().name, at: now() }); } }
   E.prep && E.prep(rec);
   save(); closeModal(); refreshMain(); toast(E.saved ? E.saved(rec) : 'Saved');
 };
-A.entToggle = t => { const key = t.dataset.key, o = byId(entColl(key), t.dataset.id); o.active = !o.active; save(); refreshMain(); toast(`${o.name || o.company} ${o.active ? 'activated' : 'deactivated'}${['items', 'cabColours', 'doorColours', 'doorStyles', 'categories', 'rooms'].includes(key) ? (o.active ? '. Customers can see it now.' : '. It’s hidden from the quote builder.') : ''}`); };
+A.entToggle = t => { const key = t.dataset.key, o = byId(entColl(key), t.dataset.id); o.active = !o.active; save(); refreshMain(); toast(`${o.name || o.company} ${o.active ? 'activated' : 'deactivated'}${['items', 'cabColours', 'doorColours', 'doorStyles', 'edgingColours', 'drawerTypes', 'categories', 'rooms'].includes(key) ? (o.active ? '. Customers can see it now.' : '. It’s hidden from the quote builder.') : ''}`); };
 A.entDel = t => {
   const key = t.dataset.key, E = ENT[key], o = byId(entColl(key), t.dataset.id), n = E.used ? E.used(o) : 0;
   if (n) { confirmBox(`Can’t delete ${esc(o.name)}`, `It’s used by ${n} ${E.usedWord || 'quote' + (n === 1 ? '' : 's')}. Deactivate it instead to hide it from customers while keeping existing records intact.`, 'Deactivate instead', () => { o.active = false; save(); refreshMain(); toast(o.name + ' deactivated'); }); return; }
@@ -7332,9 +7556,9 @@ function buildQuotePdf(q, t) {
   if (priced) {
   // finish
   T('FINISH', M, y, { b: 1, s: 7.5, c: olive }); y += 4;
-  const fw = CW / 3; const fin = [['Cabinet colour', cab ? `${cab.name} (${cab.code})` : '-', cab], ['Door style', st ? st.name : 'None (no doors)', null], ['Door colour', !st || st.none ? 'No doors' : dc ? dc.name + ((!q.doorColour || q.doorColour === 'match') ? ', as cabinets' : '') : '-', !st || st.none ? null : dc]];
-  fin.forEach(([k, v, col], i) => { const x = M + fw * i; doc.setDrawColor(...line); doc.setLineWidth(.3); doc.roundedRect(x, y, fw - 3, 15, 1.5, 1.5, 'S'); let tx = x + 4; if (col) { doc.setFillColor(...hexRgb(col.hex)); doc.setDrawColor(190, 185, 175); doc.roundedRect(x + 3, y + 3, 7, 7, 1, 1, 'FD'); tx = x + 13; } T(k, tx, y + 5.5, { s: 7, c: muted }); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...ink); doc.text(doc.splitTextToSize(pdfTxt(v), fw - (tx - x) - 5).slice(0, 2), tx, y + 9.5); });
-  y += 21;
+  const fw = CW / 3; const ed = edgeCol(q), edMatch = !q.edging || q.edging === 'match', dr = drawerOf(q); const Y0 = y; const fin = [['Cabinet colour', cab ? `${cab.name} (${cab.code})` : '-', cab], ['Door style', st ? st.name : 'None (no doors)', null], ['Door colour', !st || st.none ? 'No doors' : dc ? dc.name + ((!q.doorColour || q.doorColour === 'match') ? ', as cabinets' : '') : '-', !st || st.none ? null : dc], ['Edging colour', ed ? ed.name + (edMatch ? ', as cabinets' : '') : '-', ed], ['Drawer type', dr ? dr.name : '-', null]];
+  fin.forEach(([k, v, col], i) => { const y = Y0 + (i >= 3 ? 18 : 0); const x = M + fw * (i % 3); doc.setDrawColor(...line); doc.setLineWidth(.3); doc.roundedRect(x, y, fw - 3, 15, 1.5, 1.5, 'S'); let tx = x + 4; if (col) { doc.setFillColor(...hexRgb(col.hex)); doc.setDrawColor(190, 185, 175); doc.roundedRect(x + 3, y + 3, 7, 7, 1, 1, 'FD'); tx = x + 13; } T(k, tx, y + 5.5, { s: 7, c: muted }); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...ink); doc.text(doc.splitTextToSize(pdfTxt(v), fw - (tx - x) - 5).slice(0, 2), tx, y + 9.5); });
+  y += 39;
   // items
   const body = q.lines.map((l, i) => { const k = t.calcs[i], it = k.item; const sub = [k.specs.length ? `Door fronts: ${specText(k.specs)} · ${st.name} · ${pdfMoney(k.doorPer)} per unit` : '', l.comment ? `Comment: ${l.comment}` : '', l.remarks ? `Remarks: ${l.remarks}` : '', (l.files || []).length ? `Files: ${l.files.map(f => f.name).join(', ')}` : ''].filter(Boolean).join('\n');
     return [String(i + 1), { content: (it ? it.name : 'Removed item') + (sub ? '\n' + sub : ''), sub: !!sub }, it ? it.code : '-', String(l.qty), String(l.h), String(l.w), String(l.d), pdfMoney(k.unit), pdfMoney(k.total)]; });
@@ -7458,7 +7682,7 @@ function redrawLines() { const l = $('#bLines'); if (l) l.innerHTML = linesCardH
 
 /* ---------- design-only request ---------- */
 function newDesignDraft(c) {
-  return { id: null, number: null, type: 'design', customerId: c.id, status: 'Draft', ref: '', project: '', contact: c.contact, phone: c.phone, email: c.email, address: [c.address, c.city].filter(Boolean).join(', '), city: '', postcode: c.postcode, delivery: '', info: '', cabColour: null, doorStyle: null, doorColour: 'match', discountPct: c.discount, lines: [], attachments: [], layout: { blocks: [], savedAt: null }, notes: [], timeline: [{ at: now(), text: 'Design request started', by: c.contact }], assignedTo: null, created: now(), submitted: null, updated: now() };
+  return { id: null, number: null, type: 'design', customerId: c.id, status: 'Draft', ref: '', project: '', contact: c.contact, phone: c.phone, email: c.email, address: [c.address, c.city].filter(Boolean).join(', '), city: '', postcode: c.postcode, delivery: '', info: '', cabColour: null, doorStyle: null, doorColour: 'match', edging: 'match', drawerType: null, discountPct: c.discount, lines: [], attachments: [], layout: { blocks: [], savedAt: null }, notes: [], timeline: [{ at: now(), text: 'Design request started', by: c.contact }], assignedTo: null, created: now(), submitted: null, updated: now() };
 }
 A.planRoom = () => {
   if (typeof RoomPlanner === 'undefined') { toast('Room planner is still loading, please try again.', { err: 1 }); return; }
@@ -7498,7 +7722,7 @@ function cDesignReq() {
   const c = me();
   if (!UI.ddraft || UI.ddraft.customerId !== c.id) UI.ddraft = newDesignDraft(c);
   const d = UI.ddraft, e = UI.errors;
-  return `<div class="page-head"><div><div class="row wrap"><h1>${d.id && d.status === 'Revision Required' ? 'Revise design' : 'Send a design'}</h1><span class="tag oak">Design only</span></div><p>No items or prices needed. Draw your layout or upload drawings and our team will price it for you.</p></div>
+  return `<div class="page-head"><div><div class="row wrap"><h1>${d.id && d.status === 'Revision Required' ? 'Revise design' : d.id && d.status === 'Submitted' ? 'Edit sent design' : 'Send a design'}</h1><span class="tag oak">Design only</span></div><p>No items or prices needed. Draw your layout or upload drawings and our team will price it for you.</p></div>
     <div class="actions"><button class="btn btn-ghost" data-act="designDiscard">${ic('x', 16)} Discard</button></div></div>
   <div class="builder"><div class="stack" style="min-width:0">
     <section class="card bpanel"><div class="bpanel-h"><div><h2>Customer</h2><p>Your account details are sent with the design.</p></div></div>
@@ -7527,6 +7751,7 @@ IN.ddf = t => { UI.ddraft[t.dataset.k] = t.value; if (UI.errors[t.dataset.k]) { 
 A.designDiscard = () => { const d = UI.ddraft; const leave = () => { UI.ddraft = null; go(d && d.id ? 'c-quote:' + d.id : 'c-dash'); }; if (!d || (!d.layout.blocks.length && !d.attachments.length && !d.ref)) { leave(); return; } confirmBox('Discard this design?', 'The layout and files on this unsent design will be removed.', 'Discard design', leave, true); };
 A.designSubmitAsk = () => {
   const d = UI.ddraft, e = {};
+  if (editLocked(d)) return;
   if (!d.ref.trim()) e.ref = 'Please enter a reference.';
   if (!(d.roomPlan && d.roomPlan.path) && !d.attachments.length) e.design = 'Draw a room plan or upload at least one drawing to send.';
   UI.errors = e;
@@ -7536,15 +7761,16 @@ A.designSubmitAsk = () => {
   openModal(`${modalHead('Send design')}<div class="modal-b stack" style="gap:12px"><p style="font-size:15px;font-weight:600">Send this design to Easy Cab Builder?</p><div class="note-it"><div class="sum-row"><span>Reference</span><span class="mono">${esc(d.ref)}</span></div><div class="sum-row"><span>Room plan</span><span>${d.layout.blocks.filter(b => b.kind === 'cab').length} units</span></div><div class="sum-row"><span>Files</span><span>${d.attachments.length}</span></div></div><p class="hint">Our team will price it and send the quote back to your account.</p></div><div class="modal-f"><button class="btn btn-secondary" data-act="closeModal">Cancel</button><button class="btn btn-olive" data-act="_confirm" autofocus>${ic('send', 16)} Send design</button></div>`, 'sm');
 };
 function submitDesign() {
-  const d = UI.ddraft, c = me(), resub = d.status === 'Revision Required';
+  const d = UI.ddraft, c = me(), resub = d.status === 'Revision Required', edited = d.status === 'Submitted';
+  if (editLocked(d)) return;
   if (!d.number) { while (DB.quotes.some(q => q.number === provNumber())) DB.settings.nextNo++; d.number = provNumber(); DB.settings.nextNo++; }
-  d.status = 'Submitted'; d.submitted = now(); d.discountPct = c.discount;
-  tlog(d, resub ? 'Revised design resubmitted' : 'Design request sent', c.contact);
+  d.status = 'Submitted'; if (!edited) d.submitted = now(); d.discountPct = c.discount;
+  tlog(d, edited ? 'Design edited and sent again by customer' : resub ? 'Revised design resubmitted' : 'Design request sent', c.contact);
   let q = d.id && byId('quotes', d.id);
   if (!q) { d.id = 'q-' + d.number.slice(-5) + uid('').slice(1); d.attachments.forEach(a => a.quoteId = d.id); q = clone(d); DB.quotes.push(q); }
   else { Object.keys(q).forEach(k => delete q[k]); Object.assign(q, clone(d)); }
   notify(c.id, `Your design ${q.number} has been sent to our team.`, q.id);
-  notify('admin', `New design request ${q.number} from ${c.company}.`, q.id);
+  notify('admin', edited ? `Design ${q.number} was edited by ${c.company} before review.` : `New design request ${q.number} from ${c.company}.`, q.id);
   UI.ddraft = null; save(); go('c-success:' + q.id);
 }
 
@@ -7565,23 +7791,23 @@ const IMP = { file: null, read: null, res: null, dupes: 'skip', updates: true };
 A.catExport = () => {
   if (!window.CatalogueIO || !CatalogueIO.ready()) { toast('The spreadsheet reader did not load.', { err: 1 }); return; }
   CatalogueIO.exportAll(DB, 'easy-cab-builder-catalogue.xlsx');
-  toast(`${DB.items.length} items exported. Edit the sheet and import it back to update prices.`);
+  toast(`${DB.items.length} items, ${DB.edgingColours.length} edging colours and ${DB.drawerTypes.length} drawer types exported. Edit the sheets and import the file back.`);
 };
-A.catTemplate = () => { CatalogueIO.template(); toast('Blank template downloaded. Fill the Items sheet and import it.'); };
+A.catTemplate = () => { CatalogueIO.template(); toast('Blank template downloaded. Fill the Items, Edging Colours and Drawer Types sheets and import it.'); };
 
 A.catImport = () => {
   if (!window.CatalogueIO || !CatalogueIO.ready()) { toast('The spreadsheet reader did not load.', { err: 1 }); return; }
-  IMP.file = null; IMP.read = null; IMP.res = null; IMP.dupes = 'skip'; IMP.updates = true;
+  IMP.file = null; IMP.read = null; IMP.res = null; IMP.fin = null; IMP.dupes = 'skip'; IMP.updates = true;
   openModal(impHTML(), 'lg');
 };
 A.catPick = () => { const i = $('#impFile'); if (i) i.click(); };
 CH.impFile = t => {
   const f = t.files[0]; if (!f) return;
-  IMP.file = f; IMP.read = null; IMP.res = null;
+  IMP.file = f; IMP.read = null; IMP.res = null; IMP.fin = null;
   $('#impBody').innerHTML = `<div class="empty" style="padding:30px"><b>Reading ${esc(f.name)}…</b></div>`;
   CatalogueIO.readFile(f, r => {
     if (r.error) { IMP.read = null; IMP.err = r.error; }
-    else { IMP.read = r; IMP.err = null; IMP.res = CatalogueIO.analyse(r.items, DB); }
+    else { IMP.read = r; IMP.err = null; IMP.res = CatalogueIO.analyse(r.items, DB); IMP.fin = CatalogueIO.analyseFinish(r.edgings || [], r.drawers || [], DB); }
     $('#impBody').innerHTML = impBody();
     const ft = $('#impFoot'); if (ft) ft.innerHTML = impFoot();
   });
@@ -7604,8 +7830,13 @@ A.catImportGo = () => {
     res.dupes = [];
   }
   const out = CatalogueIO.apply(res, DB, { updates: IMP.updates });
+  const fo = IMP.fin ? CatalogueIO.applyFinish(IMP.fin, DB, { updates: IMP.updates }) : { edgeNew: 0, edgeUpd: 0, drNew: 0, drUpd: 0 };
   save(); closeModal(); render();
-  toast(`${out.created} items added${out.updated ? `, ${out.updated} updated` : ''}. The quote builder and the room planner now price from this list.`);
+  const bits = [];
+  if (out.created || out.updated) bits.push(`${out.created} items added${out.updated ? `, ${out.updated} updated` : ''}`);
+  if (fo.edgeNew || fo.edgeUpd) bits.push(`edging colours ${fo.edgeNew} added${fo.edgeUpd ? `, ${fo.edgeUpd} updated` : ''}`);
+  if (fo.drNew || fo.drUpd) bits.push(`drawer types ${fo.drNew} added${fo.drUpd ? `, ${fo.drUpd} updated` : ''}`);
+  toast((bits.join(' · ') || 'Nothing changed') + '. The quote builder now uses the new data.');
 };
 
 function impHTML() {
@@ -7620,7 +7851,8 @@ function impBody() {
   if (!IMP.file) return impDrop();
   if (!IMP.res) return `<div class="empty" style="padding:30px"><b>Reading ${esc(IMP.file.name)}…</b></div>`;
   const r = IMP.read, res = IMP.res;
-  const cols = Object.keys(r.head.map).filter(k => k !== 'row');
+  const cols = r.head ? Object.keys(r.head.map).filter(k => k !== 'row') : [];
+  const fin = IMP.fin || { edgeNew: [], edgeUpd: [], edgeSame: 0, drNew: [], drUpd: [], drSame: 0 }, noItems = r.sheetName == null;
   const stat = (n, l, tone) => `<div style="flex:1;min-width:104px;background:var(--surface-2);border-radius:10px;padding:11px 13px">
     <div class="tnum" style="font-size:21px;font-weight:800;line-height:1.1${tone ? `;color:${tone}` : ''}">${n}</div>
     <div class="hint" style="margin:2px 0 0">${l}</div></div>`;
@@ -7628,14 +7860,17 @@ function impBody() {
   res.create.concat(res.update).forEach(c => catCount[c.cat] = (catCount[c.cat] || 0) + 1);
   const rows = res.create.concat(res.update).slice(0, 12);
   return `<div class="row" style="justify-content:space-between;gap:10px;margin-bottom:14px">
-      <div><b>${esc(IMP.file.name)}</b><div class="hint">Sheet “${esc(r.sheetName)}”, header on row ${r.head.row + 1} · columns found: ${cols.join(', ')}</div></div>
+      <div><b>${esc(IMP.file.name)}</b><div class="hint">${noItems ? 'No price sheet in this file, only the finish sheets below.' : `Sheet “${esc(r.sheetName)}”, header on row ${r.head.row + 1} · columns found: ${cols.join(', ')}`}</div></div>
       <button class="btn btn-ghost btn-sm" data-act="catPick">Choose another file</button></div>
-    <div class="row" style="gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <div class="row" style="${noItems ? 'display:none;' : ''}gap:10px;margin-bottom:16px;flex-wrap:wrap">
       ${stat(res.create.length, 'New items', 'var(--olive)')}
       ${stat(res.update.length, 'Price updates')}
       ${stat(res.unchanged.length, 'Already correct')}
       ${stat(res.dupes.length, 'Repeated codes', res.dupes.length ? '#b4483c' : '')}
       ${stat(r.skipped, 'Rows skipped')}</div>
+    ${(r.edgings || []).length || (r.drawers || []).length ? `<div class="alert info" style="margin-bottom:14px;display:block"><b>Finish sheets found.</b>
+      ${(r.edgings || []).length ? `<div>Edging Colours: <b>${fin.edgeNew.length}</b> new, <b>${fin.edgeUpd.length}</b> changed, ${fin.edgeSame} already correct${fin.edgeNew.length ? ' · new: ' + fin.edgeNew.slice(0, 6).map(e => esc(e.name)).join(', ') + (fin.edgeNew.length > 6 ? '…' : '') : ''}</div>` : ''}
+      ${(r.drawers || []).length ? `<div>Drawer Types: <b>${fin.drNew.length}</b> new, <b>${fin.drUpd.length}</b> changed, ${fin.drSame} already correct${fin.drNew.length ? ' · new: ' + fin.drNew.slice(0, 6).map(e => esc(e.name)).join(', ') + (fin.drNew.length > 6 ? '…' : '') : ''}</div>` : ''}</div>` : ''}
     ${res.newCats.length ? `<div class="alert info" style="margin-bottom:14px">New categories will be created: <b>${res.newCats.map(c => esc(c.name)).join(', ')}</b></div>` : ''}
     ${res.dupes.length ? `<div class="field" style="margin-bottom:14px"><label>${res.dupes.length} rows repeat a code already used earlier in the sheet (${res.dupes.slice(0, 4).map(d => esc(d.code)).join(', ')}${res.dupes.length > 4 ? '…' : ''})</label>
       <select class="select" data-chg="impDupes">
@@ -7643,7 +7878,7 @@ function impBody() {
         <option value="suffix" ${IMP.dupes === 'suffix' ? 'selected' : ''}>Import them anyway, adding -2 to the code</option>
       </select><span class="hint">Codes have to be unique, because that is what quote lines point at.</span></div>` : ''}
     <div class="hint" style="margin-bottom:6px">By category: ${Object.entries(catCount).sort((a, b) => b[1] - a[1]).map(([id, n]) => `<span class="tag">${esc((catOf(id) || (res.newCats.find(c => c.id === id)) || { name: id }).name)} ${n}</span>`).join(' ')}</div>
-    <div style="max-height:270px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+    <div style="${noItems ? 'display:none;' : ''}max-height:270px;overflow:auto;border:1px solid var(--line);border-radius:10px">
       <table class="tbl"><thead><tr><th>Code</th><th>Item</th><th>Category</th><th class="num">H×W×D</th><th class="num">Plain</th><th class="num">Woodgrain</th><th class="num">Structure</th><th></th></tr></thead><tbody>
       ${rows.map(c => `<tr><td class="mono">${esc(c.code)}</td><td>${esc(c.name)}</td><td>${esc((catOf(c.cat) || (res.newCats.find(x => x.id === c.cat)) || { name: c.cat }).name)}</td>
         <td class="num mono">${c.h}×${c.w}×${c.d}</td><td class="num">${GBP(c.plain)}</td><td class="num">${GBP(c.wood)}</td><td class="num">${GBP(c.struct)}</td>
@@ -7655,16 +7890,19 @@ function impBody() {
 function impDrop() {
   return `<div class="drop" data-act="catPick" role="button" tabindex="0"><span class="ib">${ic('upload', 22)}</span>
       <b>Choose a price list</b><span class="hint">.xlsx, .xlsm or .csv — the sheet needs a code column and a description column. Everything else is optional.</span></div>
-    <div class="hint" style="margin-top:14px">Columns it looks for: <b>Category, CODE, Description, Room, Plain, Woodgrain, Structure, Height, Width, Depth, Doors, Notes</b>. Group 1 / 2 / 3 and Price work as price columns too. Section banners and repeated headings inside the list are ignored.</div>
+    <div class="hint" style="margin-top:14px">Columns it looks for: <b>Category, CODE, Description, Room, Plain, Woodgrain, Structure, Height, Width, Depth, Doors, Notes</b>. Group 1 / 2 / 3 and Price work as price columns too. Section banners and repeated headings inside the list are ignored. Add sheets named <b>Edging Colours</b> (Name, Code, Colour (hex), Sort, Active) and <b>Drawer Types</b> (Name, Description, Sort, Active, No drawers) to bring those in too.</div>
     <div class="row" style="gap:8px;margin-top:14px"><button class="btn btn-ghost btn-sm" data-act="catTemplate">${ic('download', 15)} Download a blank template</button>
       <button class="btn btn-ghost btn-sm" data-act="catExport">${ic('download', 15)} Export the current catalogue</button></div>`;
 }
 
 function impFoot() {
-  const res = IMP.res, n = res ? res.create.length + (IMP.updates ? res.update.length : 0) : 0;
-  return `${res && res.update.length ? `<label class="toggle" style="margin-right:auto"><input type="checkbox" data-chg="impUpdates" ${IMP.updates ? 'checked' : ''}><span class="tr"></span><span>Update the ${res.update.length} items whose prices changed</span></label>` : '<span style="margin-right:auto"></span>'}
+  const res = IMP.res, fin = IMP.fin || { edgeNew: [], edgeUpd: [], drNew: [], drUpd: [] };
+  const fNew = fin.edgeNew.length + fin.drNew.length, fUpd = fin.edgeUpd.length + fin.drUpd.length;
+  const n = res ? res.create.length + fNew + (IMP.updates ? res.update.length + fUpd : 0) : 0;
+  const nUpd = res ? res.update.length + fUpd : 0;
+  return `${res && nUpd ? `<label class="toggle" style="margin-right:auto"><input type="checkbox" data-chg="impUpdates" ${IMP.updates ? 'checked' : ''}><span class="tr"></span><span>Update the ${nUpd} ${fUpd ? 'records' : 'items'} that changed</span></label>` : '<span style="margin-right:auto"></span>'}
     <button class="btn btn-ghost" data-act="closeModal">Cancel</button>
-    <button class="btn btn-primary" data-act="catImportGo" ${n ? '' : 'disabled'}>${n ? `Import ${n} item${n === 1 ? '' : 's'}` : 'Nothing to import'}</button>`;
+    <button class="btn btn-primary" data-act="catImportGo" ${n ? '' : 'disabled'}>${n ? `Import ${n} ${fNew || fUpd ? 'record' : 'item'}${n === 1 ? '' : 's'}` : 'Nothing to import'}</button>`;
 }
 
 </script>
