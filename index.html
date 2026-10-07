@@ -4739,6 +4739,7 @@ body.rp-open .demo-bar{display:none!important}
     opts = opts || {};
     S = fresh(opts.plan);
     S.opts = opts;
+    if (opts.startIn3D && S.path) { S.view = '3d'; S.tab = '3d'; S.real = true; }
     if (S.path) rebuild();
 
     var root = document.getElementById('designer-root') || document.body;
@@ -6395,11 +6396,42 @@ A.dlFile = () => toast('File downloads are turned off in this prototype preview.
 function layoutCard(q, mode) {
   const plan = q.roomPlan;
   const units = (plan && plan.units) || [];
-  if (!plan || !plan.path) return `<div class="empty" style="padding:28px 16px"><div class="ico">${ic('cube', 22)}</div><h4>No room plan yet</h4><p>${mode === 'builder' ? 'Open the Room Planner to draw the room and place your units.' : 'No room plan was drawn for this quote.'}</p></div>`;
+  if (!plan || !plan.path) return `<div class="empty" style="padding:28px 16px"><div class="ico">${ic('cube', 22)}</div><h4>No room plan yet</h4><p>${mode === 'builder' ? 'Open the Room Planner to draw the room and place your units.' : 'No room plan was drawn for this quote.'}</p>${mode === 'builder' ? `<div style="margin-top:10px">${planImportBtn()}</div>` : ''}</div>`;
   const svg = (typeof RoomPlanner !== 'undefined' && RoomPlanner.preview) ? RoomPlanner.preview(plan, { dims: true }) : '';
   const extras = (plan.extras || []).length;
-  return `<div class="layout-prev">${svg}</div><div class="row" style="margin-top:10px;font-size:12.5px"><span class="muted">${units.length} unit${units.length === 1 ? '' : 's'} placed${extras ? ' · ' + extras + ' extra' + (extras === 1 ? '' : 's') : ''}${plan.savedAt ? ' · saved ' + fmtDT(plan.savedAt) : ''}</span><span class="spacer"></span><button class="btn btn-ghost btn-sm" data-act="viewLayout" data-id="${q.id || 'draft'}">${ic('eye', 15)} View larger</button></div>`;
+  return `<div class="layout-prev">${svg}</div><div class="row" style="margin-top:10px;font-size:12.5px"><span class="muted">${units.length} unit${units.length === 1 ? '' : 's'} placed${extras ? ' · ' + extras + ' extra' + (extras === 1 ? '' : 's') : ''}${plan.savedAt ? ' · saved ' + fmtDT(plan.savedAt) : ''}</span><span class="spacer"></span><button class="btn btn-ghost btn-sm" data-act="viewLayout" data-id="${q.id || 'draft'}">${ic('eye', 15)} View larger</button></div>
+  <div class="row wrap" style="margin-top:8px;gap:8px"><button class="btn btn-secondary btn-sm" data-act="view3d" data-id="${q.id || 'draft'}">${ic('cube', 15)} View in 3D</button><button class="btn btn-secondary btn-sm" data-act="planJson" data-id="${q.id || 'draft'}">${ic('download', 15)} Download plan (.json)</button>${mode === 'builder' ? planImportBtn() : ''}</div>`;
 }
+const planImportBtn = () => `<label class="btn btn-secondary btn-sm" style="cursor:pointer">${ic('upload', 15)} Import plan (.json)<input type="file" accept=".json,application/json" data-chg="planImport" hidden></label>`;
+/* The room plan is stored with the quote as plain data. 2D and 3D are both drawn from it, so one file carries both. */
+A.view3d = t => {
+  const q = t.dataset.id === 'draft' ? CD() : byId('quotes', t.dataset.id);
+  if (!q || !q.roomPlan || !q.roomPlan.path) return;
+  if (typeof RoomPlanner === 'undefined') { toast('Room planner is still loading, please try again.', { err: 1 }); return; }
+  RoomPlanner.open({ title: 'Room plan · ' + (q.number || 'Draft') + ' · view only', plan: q.roomPlan, styleSource: () => q, startIn3D: true });
+};
+A.planJson = t => {
+  const q = t.dataset.id === 'draft' ? CD() : byId('quotes', t.dataset.id);
+  if (!q || !q.roomPlan || !q.roomPlan.path) { toast('There is no room plan to download yet.', { err: 1 }); return; }
+  const data = { format: 'easycabbuilder-room-plan', version: 1, exported: now(), quote: q.number || null, reference: q.ref || '',
+    finish: { cabinetColour: (cabCol(q) || {}).name || '', doorStyle: (byId('doorStyles', q.doorStyle) || {}).name || '' },
+    plan: q.roomPlan };
+  saveFile('room-plan-' + (q.number || 'draft') + '.json', new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
+};
+CH.planImport = async t => {
+  const f = t.files && t.files[0]; t.value = ''; if (!f) return;
+  const d = CD(); if (!d) return;
+  let j; try { j = JSON.parse(await f.text()); } catch (e) { toast('That file is not a valid plan (.json).', { err: 1 }); return; }
+  const p = (j && j.plan) || j;
+  const okPath = p && Array.isArray(p.path) && p.path.length >= 3 && p.path.every(s => s && 'RDLU'.includes(s.d) && s.len >= 100 && s.len <= 60000);
+  if (!okPath || !Array.isArray(p.units || [])) { toast('That file does not look like an Easy Cab Builder room plan.', { err: 1 }); return; }
+  const plan = clone(p); plan.units = plan.units || []; plan.openings = plan.openings || []; plan.feats = plan.feats || []; plan.extras = plan.extras || [];
+  const before = plan.units.length; plan.units = plan.units.filter(u => byId('items', u.itemId));
+  const dropped = before - plan.units.length;
+  plan.nid = Math.max(plan.nid || 1, ...plan.units.map(u => (+u.id || 0) + 1), 1); plan.savedAt = Date.now();
+  const apply = () => { d.roomPlan = plan; save(); render(); toast(`Plan imported: ${plan.units.length} unit${plan.units.length === 1 ? '' : 's'}${dropped ? ` (${dropped} skipped, not in this catalogue)` : ''}. Open the Room Planner to edit it in 2D or 3D.`); };
+  if (d.roomPlan && d.roomPlan.path) confirmBox('Replace your current room plan?', 'The plan in this quote will be replaced by the one in the file. Lines already added to the quote are not changed.', 'Replace plan', apply, true); else apply();
+};
 A.viewLayout = t => {
   const q = t.dataset.id === 'draft' ? CD() : byId('quotes', t.dataset.id);
   if (!q || !q.roomPlan) return;
