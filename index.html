@@ -2691,8 +2691,31 @@ body.rp-open .demo-bar{display:none!important}
         pl.castShadow = shadows; grp.add(pl);
       }
 
+      /* A sink or a hob dropped straight onto the plan is an appliance, not a
+         cabinet, but on site it always sits in a base unit. Build that unit
+         under it so the run reads properly instead of the sink floating. */
+      function hostCabinet() {
+        var hw = u.w, hd = Math.max(u.d, WTOP_D - 30), fz = hd / 2 + 10, gp = 4;
+        var body = new THREE.Mesh(new THREE.BoxGeometry(hw, CARC, hd), matCarc);
+        body.position.set(0, PLINTH + CARC / 2, 0);
+        body.castShadow = shadows; body.receiveShadow = shadows; grp.add(body);
+        if (hw >= 800) {
+          var half = (hw - gp * 3) / 2;
+          var dl = doorPanel(half, CARC - gp * 2, grp, -(half + gp) / 2, PLINTH + CARC / 2, fz);
+          var dr2 = doorPanel(half, CARC - gp * 2, grp, (half + gp) / 2, PLINTH + CARC / 2, fz);
+          handleOn(dl, half, CARC, false, 'right'); handleOn(dr2, half, CARC, false, 'left');
+        } else {
+          var one = doorPanel(hw - gp * 2, CARC - gp * 2, grp, 0, PLINTH + CARC / 2, fz);
+          handleOn(one, hw, CARC, false, u.hinge === 'right' ? 'right' : 'left');
+        }
+        var wt2 = new THREE.Mesh(new THREE.BoxGeometry(hw, WTOP_T, hd + 20), matWtop);
+        wt2.position.set(0, PLINTH + CARC + WTOP_T / 2, 10);
+        wt2.castShadow = shadows; grp.add(wt2);
+      }
+
       /* hobs and sinks sit in the worktop, not as a carcass */
       if (code.indexOf('HOB') >= 0) {
+        hostCabinet();
         var hob = new THREE.Mesh(new THREE.BoxGeometry(u.w, 12, u.d), matDark);
         hob.position.set(0, PLINTH + CARC + WTOP_T + 6, 0); grp.add(hob);
         for (var bi = 0; bi < 4; bi++) {
@@ -2704,6 +2727,7 @@ body.rp-open .demo-bar{display:none!important}
         return;
       }
       if (cat === 'cat-sink' && code.indexOf('TAP') < 0) {
+        hostCabinet();
         var topY = PLINTH + CARC + WTOP_T;
         var belfast = /BEL|BUTLER|FIRECLAY|CERAMIC/.test(code.toUpperCase() + (it.name || '').toUpperCase());
         if (belfast) {
@@ -2729,7 +2753,7 @@ body.rp-open .demo-bar{display:none!important}
         } else {
           /* an inset sink: a steel top plate with a bowl and a drainer */
           var pw = Math.min(u.w - 60, 860), pd = Math.min(u.d - 90, 480);
-          var plate = new THREE.Mesh(new THREE.BoxGeometry(pw, 10, pd), matSteel);
+          var plate = new THREE.Mesh(new THREE.BoxGeometry(pw, 10, pd), matWell);
           plate.position.set(0, topY + 6, -10); grp.add(plate);
           var bwl = new THREE.Mesh(new THREE.BoxGeometry(pw * .44, 180, pd * .68), matWell);
           bwl.position.set(-pw * .22, topY - 86, -10); grp.add(bwl);
@@ -3576,7 +3600,7 @@ body.rp-open .demo-bar{display:none!important}
     if (u.shape) return u.shape === 'blind' ? 'box' : u.shape;
     // a diagonal or L-shaped unit keeps its shape whatever category it sits in
     if (/DIAG/.test(nm) || /DIAG/.test(code) || /^BDC/.test(code) || /^[ST]DW/.test(code) || /^DR\d*X/.test(code)) return 'diag';
-    if (/L.?SHAPE/.test(nm) || /^BLC/.test(code) || /^DLC/.test(code)) return 'L';
+    if (/L.?SHAPE/.test(nm) || /^BLC/.test(code)) return 'L';
     if (!(cat === 'cat-corner' || /CORNER/.test(nm) || u.kind === 'corner')) return 'box';
     // at a normal carcass depth a corner unit is a blind corner, so it keeps
     // its rectangle; only a deeper one actually turns the corner
@@ -5165,7 +5189,8 @@ body.rp-open .demo-bar{display:none!important}
     S.units.forEach(function (u) {
       var it = itemOf(u); if (!it) return;
       var key = it.id + '|' + Math.round(u.w) + '|' + Math.round(u.h) + '|' + Math.round(u.d) + '|' + (u.blank == null ? '' : u.blank) + '|' + (u.doorLayout || '') + '|' + (u.legs || '') + '|' + (u.hanging || '');
-      if (!map[key]) map[key] = { itemId: it.id, w: Math.round(u.w), h: Math.round(u.h), d: Math.round(u.d), blank: u.blank == null ? null : u.blank, doorLayout: u.doorLayout || 'split', legs: u.legs || '', hanging: u.hanging || 'single', qty: 0 };
+      if (!map[key]) map[key] = { itemId: it.id, w: Math.round(u.w), h: Math.round(u.h), d: Math.round(u.d), blank: u.blank == null ? null : u.blank, doorLayout: u.doorLayout || 'split', legs: u.legs || '', hanging: u.hanging || 'single', ids: [], qty: 0 };
+      map[key].ids.push(u.id);
       map[key].qty++;
     });
     var out = Object.keys(map).map(function (k) { return map[k]; });
@@ -7583,7 +7608,12 @@ function newDraft(c) {
   return { id: null, number: null, customerId: c.id, status: 'Draft', ref: '', project: '', contact: c.contact, phone: c.phone, email: c.email, address: [c.address, c.city].filter(Boolean).join(', '), city: '', postcode: c.postcode, delivery: '', info: '', cabColour: null, doorStyle: null, doorColour: 'match', edging: 'match', edging08: 'match', drawerType: null, worktop: 'none', discountPct: c.discount, lines: [], attachments: [], layout: { blocks: [], savedAt: null }, notes: [], timeline: [{ at: now(), text: 'Quote created', by: c.contact }], assignedTo: null, created: now(), submitted: null, updated: now() };
 }
 /* Blind corner units (corner bases, corner robes) have a blank: the plain filler panel the cabinet is built around. The customer gives its width. Admin can switch this on or off per item (Items > "Ask for blank size"). */
-const needsBlank = it => !!it && (it.blank === true || (it.blank === undefined && /corner/i.test(it.name || '')));
+/* Corner units come in three kinds and each is measured differently:
+   a blind corner is built around a blank, while an L-shape and a diagonal
+   return along both walls, so each of their two sides has its own width and depth. */
+const isLShape = it => !!it && (/^BLC/i.test(it.code || '') || /l.?shape/i.test(it.name || ''));
+const isDiagonal = it => !!it && (/^BDC/i.test(it.code || '') || /^[ST]DW/i.test(it.code || '') || /^DR\d*X/i.test(it.code || '') || /diagonal/i.test(it.name || ''));
+const needsBlank = it => !!it && !isLShape(it) && !isDiagonal(it) && (it.blank === true || (it.blank === undefined && /corner/i.test(it.name || '')));
 const blankTxt = (l, it) => needsBlank(it) ? (l.blank == null || l.blank === '' ? 'Blank size needed' : 'Blank ' + l.blank + ' mm') : '';
 /* Tall appliance housings (oven at eye level) are split in two: a door above the appliance and a door or a drawer below it.
    The customer gives the top door height and says whether the bottom is a door or a drawer. Admin can switch this on or off per item. */
@@ -7620,9 +7650,17 @@ const roomLabel = x => { const r = DB.rooms.find(v => v.id === x); return r ? r.
 const legOf = l => (l && l.legs) ? byId('legTypes', l.legs) : null;
 const legTxt = (l, it) => needsLegs(it) ? ((legOf(l) || {}).name || 'Legs not chosen') : '';
 const needsDoorLayout = it => !!it && it.doors !== false && (+it.h || 0) >= 1500 && ['cat-tall', 'cat-robe', 'cat-appl'].includes(it.cat) && !needsSections(it);
-const needsSides = it => !!it && (it.sides === true || (it.sides === undefined && it.cat === 'cat-custom' && /curve|splay|angle/i.test(it.name || '')));
-const sidesTxt = (l, it) => needsSides(it) ? ((+l.leftW > 0 || +l.rightW > 0) ? 'Left ' + (+l.leftW || 0) + ' mm · right ' + (+l.rightW || 0) + ' mm' : 'Side widths needed') : '';
-function newBf() { return { room: 'rm-1', cat: 'cat-base', itemId: null, qty: 1, h: '', w: '', d: '', blank: '', topDoor: '', bottomType: 'door', leftW: '', rightW: '', doorLayout: 'split', hanging: 'single', legs: '', comment: '', remarks: '', editing: null, search: '' }; }
+const needsSides = it => !!it && (isLShape(it) || isDiagonal(it) || it.sides === true || (it.sides === undefined && it.cat === 'cat-custom' && /curve|splay|angle/i.test(it.name || '')));
+/* an L-shape or a diagonal also needs the depth of each side, not just the width */
+const needsSideDepths = it => isLShape(it) || isDiagonal(it);
+function sidesTxt(l, it) {
+  if (!needsSides(it)) return '';
+  const got = +l.leftW > 0 || +l.rightW > 0;
+  if (!got) return needsSideDepths(it) ? 'Side sizes needed' : 'Side widths needed';
+  const side = (w, d) => (+w || 0) + (needsSideDepths(it) ? ' × ' + (+d || 0) : '') + ' mm';
+  return 'Left hand ' + side(l.leftW, l.leftD) + ' · right hand ' + side(l.rightW, l.rightD);
+}
+function newBf() { return { room: 'rm-1', cat: 'cat-base', itemId: null, qty: 1, h: '', w: '', d: '', blank: '', topDoor: '', bottomType: 'door', leftW: '', rightW: '', doorLayout: 'split', hanging: 'single', legs: '', leftD: '', rightD: '', comment: '', remarks: '', editing: null, search: '' }; }
 function startQuote() {
   UI.draft = newDraft(me()); UI.bf = newBf(); UI.bs = { step: 1, max: 1 }; UI.cbx = null;
   if (UI.preCat && catOf(UI.preCat)) { const cat = catOf(UI.preCat); UI.bf.cat = cat.id; if (cat.rooms[0] !== 'all') UI.bf.room = cat.rooms[0]; }
@@ -7687,7 +7725,7 @@ function validateStep(n) {
   const d = UI.draft, e = {};
   if (n === 1) { if (!d.ref.trim()) e.ref = 'Please enter a reference.'; if (!String(d.address || '').trim()) e.address = 'Please enter a delivery address.'; if (!d.delivery) e.delivery = 'Please choose a delivery date.'; if (d.email && !/^\S+@\S+\.\S+$/.test(d.email)) e.email = 'Enter a valid email address.'; if (!String(d.contact).trim()) e.contact = 'Please enter a contact name.'; }
   if (n === 1) { if (!d.cabColour) e.cabColour = 'Please choose a cabinet colour.'; if (!d.drawerType) e.drawerType = 'Please choose a drawer type, or No Drawers.'; }
-  if (n === 1) { if (!d.lines.length) e.lines = 'Add at least one item to continue.'; else { const bad = d.lines.filter(l => { const it = byId('items', l.itemId); return needsBlank(it) && (l.blank == null || l.blank === ''); }); if (bad.length) e.lines = 'Corner units need a blank size. Use the edit button on: ' + bad.map(l => (byId('items', l.itemId) || {}).name).join(', ') + '.'; const bad2 = d.lines.filter(l => needsSections(byId('items', l.itemId)) && !(+l.topDoor > 0)); if (!bad.length && bad2.length) e.lines = 'Appliance housings need a top door height. Use the edit button on: ' + bad2.map(l => (byId('items', l.itemId) || {}).name).join(', ') + '.'; const bad3 = d.lines.filter(l => needsSides(byId('items', l.itemId)) && !(+l.leftW > 0 && +l.rightW > 0)); if (!bad.length && !bad2.length && bad3.length) e.lines = 'Made-to-specification items need both side widths. Use the edit button on: ' + bad3.map(l => (byId('items', l.itemId) || {}).name).join(', ') + '.'; } }
+  if (n === 1) { if (!d.lines.length) e.lines = 'Add at least one item to continue.'; else { const bad = d.lines.filter(l => { const it = byId('items', l.itemId); return needsBlank(it) && (l.blank == null || l.blank === ''); }); if (bad.length) e.lines = 'Corner units need a blank size. Use the edit button on: ' + bad.map(l => (byId('items', l.itemId) || {}).name).join(', ') + '.'; const bad2 = d.lines.filter(l => needsSections(byId('items', l.itemId)) && !(+l.topDoor > 0)); if (!bad.length && bad2.length) e.lines = 'Appliance housings need a top door height. Use the edit button on: ' + bad2.map(l => (byId('items', l.itemId) || {}).name).join(', ') + '.'; const bad3 = d.lines.filter(l => { const it = byId('items', l.itemId); return needsSides(it) && !(+l.leftW > 0 && +l.rightW > 0 && (!needsSideDepths(it) || (+l.leftD > 0 && +l.rightD > 0))); }); if (!bad.length && !bad2.length && bad3.length) e.lines = 'Corner and made-to-specification units need both side sizes. Use the edit button on: ' + bad3.map(l => (byId('items', l.itemId) || {}).name).join(', ') + '.'; } }
   return e;
 }
 function tryStep(target) {
@@ -7854,7 +7892,9 @@ function configHTML() {
     <div class="config-grid"><div class="field"><span class="lbl">Quantity</span><div class="stepper-in"><button type="button" data-act="qtyStep" data-v="-1" aria-label="Decrease quantity">−</button><input id="bf-qty" type="number" min="1" data-in="bf" data-k="qty" value="${esc(bf.qty)}" aria-label="Quantity"><button type="button" data-act="qtyStep" data-v="1" aria-label="Increase quantity">+</button></div></div>${u('h', 'Height')}${u('w', 'Width')}${u('d', 'Depth')}</div>
     ${needsBlank(it) ? `<div class="config-grid" style="margin-top:12px">${u('blank', 'Blank size')}<p class="hint" style="grid-column:span 2;align-self:center;margin:0">Width of the blank (filler panel) on this corner unit. Enter 0 if there is no blank.</p></div>` : ''}
     ${needsSections(it) ? `<div class="config-grid" style="margin-top:12px">${u('topDoor', 'Top door height')}<div class="field"><label class="lbl" for="bf-bottomType">Bottom section</label><select class="select" id="bf-bottomType" data-in="bf" data-k="bottomType"><option value="door" ${bf.bottomType !== 'drawer' ? 'selected' : ''}>Door</option><option value="drawer" ${bf.bottomType === 'drawer' ? 'selected' : ''}>Drawer</option></select></div><p class="hint" style="grid-column:span 2;align-self:center;margin:0">Height of the door above the appliance, and what goes below it. The appliance opening sits in between.</p></div>` : ''}
-    ${needsSides(it) ? `<div class="config-grid" style="margin-top:12px">${u('leftW', 'Width of left side')}${u('rightW', 'Width of right side')}<p class="hint" style="grid-column:span 2;align-self:center;margin:0">Each side of this special is measured separately. Give the width each side returns, in mm.</p></div>` : ''}
+    ${needsSides(it) ? (needsSideDepths(it)
+      ? `<div class="config-grid" style="margin-top:12px">${u('leftW', 'Left hand width')}${u('leftD', 'Left hand depth')}${u('rightW', 'Right hand width')}${u('rightD', 'Right hand depth')}</div><p class="hint" style="margin:8px 0 0">This unit returns along both walls, so each side is measured on its own: the width it runs along the wall and how deep it comes into the room.</p>`
+      : `<div class="config-grid" style="margin-top:12px">${u('leftW', 'Width of left side')}${u('rightW', 'Width of right side')}<p class="hint" style="grid-column:span 2;align-self:center;margin:0">Each side of this special is measured separately. Give the width each side returns, in mm.</p></div>`) : ''}
     ${needsDoorLayout(it) ? (() => { const a = tallDoors(bf.h || it.h, 'split'), b = tallDoors(bf.h || it.h, 'full'); return `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-doorLayout">Door layout</label><select class="select" id="bf-doorLayout" data-in="bf" data-k="doorLayout"><option value="split" ${bf.doorLayout !== 'full' ? 'selected' : ''}>Two doors · ${a.join(' + ')} mm</option><option value="full" ${bf.doorLayout === 'full' ? 'selected' : ''}>One full door · ${b.join(' + ')} mm</option></select></div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">Standard door heights for a ${Math.round(bf.h || it.h)} mm cabinet. Two doors split top and bottom on the same hinge side; one door runs the full height.</p></div>`; })() : ''}
     ${needsHanging(it) ? `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-hanging">Hanging</label><select class="select" id="bf-hanging" data-in="bf" data-k="hanging"><option value="single" ${bf.hanging !== 'double' ? 'selected' : ''}>Single hanging rail</option><option value="double" ${bf.hanging === 'double' ? 'selected' : ''}>Double hanging (two rails)</option></select></div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">One full-height hanging rail, or two rails one above the other for shorter garments.</p></div>` : ''}
     ${needsLegs(it) ? (() => { const L = legOptions(it); return `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-legs">Legs</label><select class="select" id="bf-legs" data-in="bf" data-k="legs">${L.length ? '' : '<option value="">None set up</option>'}${L.map(o => `<option value="${o.id}" ${bf.legs === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>${e.legs ? `<span class="err-msg">${e.legs}</span>` : ''}</div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">How this unit stands. The choices follow the room this item belongs to${it.room ? ' (' + esc(it.room) + ')' : ''}.</p></div>`; })() : ''}
@@ -7885,7 +7925,7 @@ function drawStep3() { drawPath(); const p = $('#picker'); if (p) p.innerHTML = 
 A.pickRoom = t => { UI.bf.room = t.dataset.id; UI.bf.search = ''; $$('.room-chips .chip').forEach(c => c.classList.toggle('on', c.dataset.id === t.dataset.id)); $('#picker').innerHTML = pickerHTML(); drawPath(); };
 A.pickCat = t => { UI.bf.cat = t.dataset.id; UI.bf.search = ''; $('#picker').innerHTML = pickerHTML(); drawPath(); };
 IN.itemSearch = t => { UI.bf.search = t.value; $('#pickList').innerHTML = pickListHTML(); };
-A.pickItem = t => { const it = byId('items', t.dataset.id); const ed = UI.bf.editing; Object.assign(UI.bf, { itemId: it.id, h: it.h, w: it.w, d: it.d, blank: ed ? UI.bf.blank : '', topDoor: ed ? UI.bf.topDoor : '', bottomType: ed ? UI.bf.bottomType : 'door', leftW: ed ? UI.bf.leftW : '', rightW: ed ? UI.bf.rightW : '', doorLayout: ed ? UI.bf.doorLayout : 'split', hanging: ed ? UI.bf.hanging : 'single', legs: ed ? UI.bf.legs : ((legOptions(it)[0] || {}).id || ''), qty: ed ? UI.bf.qty : 1, comment: ed ? UI.bf.comment : '', remarks: ed ? UI.bf.remarks : '' }); delete UI.errors.item; $$('.pick-it').forEach(b => b.classList.toggle('on', b.dataset.id === it.id)); $('#bConfig').innerHTML = configHTML(); drawPath(); if (window.innerWidth < 900) $('#cfgBox').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
+A.pickItem = t => { const it = byId('items', t.dataset.id); const ed = UI.bf.editing; Object.assign(UI.bf, { itemId: it.id, h: it.h, w: it.w, d: it.d, blank: ed ? UI.bf.blank : '', topDoor: ed ? UI.bf.topDoor : '', bottomType: ed ? UI.bf.bottomType : 'door', leftW: ed ? UI.bf.leftW : '', rightW: ed ? UI.bf.rightW : '', leftD: ed ? UI.bf.leftD : '', rightD: ed ? UI.bf.rightD : '', doorLayout: ed ? UI.bf.doorLayout : 'split', hanging: ed ? UI.bf.hanging : 'single', legs: ed ? UI.bf.legs : ((legOptions(it)[0] || {}).id || ''), qty: ed ? UI.bf.qty : 1, comment: ed ? UI.bf.comment : '', remarks: ed ? UI.bf.remarks : '' }); delete UI.errors.item; $$('.pick-it').forEach(b => b.classList.toggle('on', b.dataset.id === it.id)); $('#bConfig').innerHTML = configHTML(); drawPath(); if (window.innerWidth < 900) $('#cfgBox').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
 IN.bf = t => { UI.bf[t.dataset.k] = t.value; if (['qty', 'h', 'w', 'd'].includes(t.dataset.k)) { const p = $('#cfgPrice'); if (p) p.innerHTML = cfgPriceHTML(); const n = $('#doorNote'); if (n) n.innerHTML = doorNoteHTML(); if (UI.errors[t.dataset.k]) { delete UI.errors[t.dataset.k]; t.classList.remove('err'); } } };
 A.qtyStep = t => { UI.bf.qty = Math.max(1, (+UI.bf.qty || 1) + (+t.dataset.v)); $('#bf-qty').value = UI.bf.qty; $('#cfgPrice').innerHTML = cfgPriceHTML(); };
 A.addLine = () => {
@@ -7898,23 +7938,30 @@ A.addLine = () => {
     if (needsBlank(it)) { if (bf.blank === '' || bf.blank == null || !(+bf.blank >= 0)) e.blank = 'Enter the blank size in mm (0 if there is none).'; else if (+bf.blank > (+bf.w || 0)) e.blank = 'The blank cannot be wider than the unit.'; }
     if (needsSections(it)) { if (!(+bf.topDoor > 0)) e.topDoor = 'Enter the top door height in mm.'; else if (+bf.topDoor >= (+bf.h || 0)) e.topDoor = 'The top door must be shorter than the whole unit.'; }
     if (needsLegs(it) && legOptions(it).length && !bf.legs) e.legs = 'Choose how this unit stands.';
-    if (needsSides(it)) { if (!(+bf.leftW > 0)) e.leftW = 'Enter the width of the left side in mm.'; if (!(+bf.rightW > 0)) e.rightW = 'Enter the width of the right side in mm.'; }
+    if (needsSides(it)) {
+      if (!(+bf.leftW > 0)) e.leftW = needsSideDepths(it) ? 'Enter the left hand width in mm.' : 'Enter the width of the left side in mm.';
+      if (!(+bf.rightW > 0)) e.rightW = needsSideDepths(it) ? 'Enter the right hand width in mm.' : 'Enter the width of the right side in mm.';
+      if (needsSideDepths(it)) {
+        if (!(+bf.leftD > 0)) e.leftD = 'Enter the left hand depth in mm.';
+        if (!(+bf.rightD > 0)) e.rightD = 'Enter the right hand depth in mm.';
+      }
+    }
     if (+bf.w > 3000 || +bf.h > 2800) e.w = e.w || 'That size is larger than we can make. Maximum 3000 wide, 2800 high.';
   }
   UI.errors = e;
   if (Object.keys(e).length) { $('#bConfig').innerHTML = configHTML(); toast(Object.values(e)[0], { err: 1 }); return; }
-  const line = { id: bf.editing || uid('ln'), itemId: it.id, qty: Math.round(+bf.qty), h: +bf.h || 0, w: +bf.w || 0, d: +bf.d || 0, blank: needsBlank(it) ? +bf.blank : null, topDoor: needsSections(it) ? +bf.topDoor : null, bottomType: needsSections(it) ? (bf.bottomType === 'drawer' ? 'drawer' : 'door') : null, leftW: needsSides(it) ? +bf.leftW : null, rightW: needsSides(it) ? +bf.rightW : null, doorLayout: needsDoorLayout(it) ? doorLayoutOf(bf) : null, hanging: needsHanging(it) ? hangingOf(bf) : null, legs: needsLegs(it) ? (bf.legs || null) : null, comment: bf.comment.trim(), remarks: '', noDoors: bf.editing ? !!(UI.draft.lines.find(l => l.id === bf.editing) || {}).noDoors : false, files: bf.editing ? ((UI.draft.lines.find(l => l.id === bf.editing) || {}).files || []) : [] };
+  const line = { id: bf.editing || uid('ln'), itemId: it.id, qty: Math.round(+bf.qty), h: +bf.h || 0, w: +bf.w || 0, d: +bf.d || 0, blank: needsBlank(it) ? +bf.blank : null, topDoor: needsSections(it) ? +bf.topDoor : null, bottomType: needsSections(it) ? (bf.bottomType === 'drawer' ? 'drawer' : 'door') : null, leftW: needsSides(it) ? +bf.leftW : null, rightW: needsSides(it) ? +bf.rightW : null, leftD: needsSideDepths(it) ? +bf.leftD : null, rightD: needsSideDepths(it) ? +bf.rightD : null, doorLayout: needsDoorLayout(it) ? doorLayoutOf(bf) : null, hanging: needsHanging(it) ? hangingOf(bf) : null, legs: needsLegs(it) ? (bf.legs || null) : null, comment: bf.comment.trim(), remarks: '', noDoors: bf.editing ? !!(UI.draft.lines.find(l => l.id === bf.editing) || {}).noDoors : false, files: bf.editing ? ((UI.draft.lines.find(l => l.id === bf.editing) || {}).files || []) : [] };
   const d = UI.draft, c = me();
-  if (bf.editing) { const i = d.lines.findIndex(l => l.id === bf.editing); d.lines[i] = line; tlog(d, `Line updated: ${line.qty} × ${it.name}`, c.contact); toast(`Updated ${line.qty} × ${it.name}`); }
+  if (bf.editing) { const i = d.lines.findIndex(l => l.id === bf.editing), was = d.lines[i]; line.fromPlan = !!was.fromPlan; line.planIds = was.planIds || []; d.lines[i] = line; const synced = applyLineToPlan(line); tlog(d, `Line updated: ${line.qty} × ${it.name}`, c.contact); toast(synced ? `Updated ${line.qty} × ${it.name}, and the room plan with it` : `Updated ${line.qty} × ${it.name}`); }
   else { d.lines.push(line); tlog(d, `Item added: ${line.qty} × ${it.name}`, c.contact); toast(`Added ${line.qty} × ${it.name} to the quote`); }
   delete UI.errors.lines;
-  Object.assign(bf, { editing: null, qty: 1, comment: '', remarks: '', h: it.h, w: it.w, d: it.d, blank: '', topDoor: '', bottomType: 'door', leftW: '', rightW: '', doorLayout: 'split', hanging: 'single', legs: '' });
+  Object.assign(bf, { editing: null, qty: 1, comment: '', remarks: '', h: it.h, w: it.w, d: it.d, blank: '', topDoor: '', bottomType: 'door', leftW: '', rightW: '', leftD: '', rightD: '', doorLayout: 'split', hanging: 'single', legs: '' });
   UI.flashLine = line.id; drawStep3(); UI.flashLine = null; save();
 };
-A.editLine = t => { const l = UI.draft.lines.find(x => x.id === t.dataset.id), it = byId('items', l.itemId); if (!it) { toast('That item is no longer in the catalogue. Delete the line and choose another.', { err: 1 }); return; } const cat = catOf(it.cat); if (cat && !cat.rooms.includes('all') && !cat.rooms.includes(UI.bf.room)) UI.bf.room = cat.rooms[0]; Object.assign(UI.bf, { cat: it.cat, itemId: it.id, qty: l.qty, h: l.h, w: l.w, d: l.d, blank: l.blank == null ? '' : l.blank, topDoor: l.topDoor == null ? '' : l.topDoor, bottomType: l.bottomType || 'door', leftW: l.leftW == null ? '' : l.leftW, rightW: l.rightW == null ? '' : l.rightW, doorLayout: doorLayoutOf(l), hanging: hangingOf(l), legs: l.legs || ((legOptions(it)[0] || {}).id || ''), comment: l.comment, remarks: l.remarks, editing: l.id, search: '' }); UI.errors = {}; $$('.room-chips .chip').forEach(c => c.classList.toggle('on', c.dataset.id === UI.bf.room)); drawStep3(); $('#bConfig').scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+A.editLine = t => { const l = UI.draft.lines.find(x => x.id === t.dataset.id), it = byId('items', l.itemId); if (!it) { toast('That item is no longer in the catalogue. Delete the line and choose another.', { err: 1 }); return; } const cat = catOf(it.cat); if (cat && !cat.rooms.includes('all') && !cat.rooms.includes(UI.bf.room)) UI.bf.room = cat.rooms[0]; Object.assign(UI.bf, { cat: it.cat, itemId: it.id, qty: l.qty, h: l.h, w: l.w, d: l.d, blank: l.blank == null ? '' : l.blank, topDoor: l.topDoor == null ? '' : l.topDoor, bottomType: l.bottomType || 'door', leftW: l.leftW == null ? '' : l.leftW, rightW: l.rightW == null ? '' : l.rightW, leftD: l.leftD == null ? '' : l.leftD, rightD: l.rightD == null ? '' : l.rightD, doorLayout: doorLayoutOf(l), hanging: hangingOf(l), legs: l.legs || ((legOptions(it)[0] || {}).id || ''), comment: l.comment, remarks: l.remarks, editing: l.id, search: '' }); UI.errors = {}; $$('.room-chips .chip').forEach(c => c.classList.toggle('on', c.dataset.id === UI.bf.room)); drawStep3(); $('#bConfig').scrollIntoView({ block: 'center', behavior: 'smooth' }); };
 A.cancelEdit = () => { UI.bf.editing = null; UI.bf.qty = 1; UI.bf.comment = ''; UI.bf.remarks = ''; $('#bConfig').innerHTML = configHTML(); };
-A.dupLine = t => { const d = UI.draft, i = d.lines.findIndex(x => x.id === t.dataset.id), copy = { ...d.lines[i], id: uid('ln'), files: [] }; d.lines.splice(i + 1, 0, copy); const it = byId('items', copy.itemId); tlog(d, `Line duplicated: ${copy.qty} × ${it ? it.name : 'item'}`, me().contact); UI.flashLine = copy.id; drawStep3(); UI.flashLine = null; save(); toast('Line duplicated'); };
-A.delLine = t => { const d = UI.draft, i = d.lines.findIndex(x => x.id === t.dataset.id), l = d.lines[i], it = byId('items', l.itemId); d.lines.splice(i, 1); if (UI.bf.editing === l.id) UI.bf.editing = null; tlog(d, `Line removed: ${l.qty} × ${it ? it.name : 'item'}`, me().contact); drawStep3(); save(); toast(`Removed ${it ? it.name : 'line'}`, { action: { label: 'Undo', fn: () => { d.lines.splice(i, 0, l); d.timeline.pop(); drawStep3(); save(); } } }); };
+A.dupLine = t => { const d = UI.draft, i = d.lines.findIndex(x => x.id === t.dataset.id), copy = { ...d.lines[i], id: uid('ln'), files: [], fromPlan: false, planIds: [], comment: (d.lines[i].comment || '').replace('From room planner', '').trim() }; d.lines.splice(i + 1, 0, copy); const it = byId('items', copy.itemId); tlog(d, `Line duplicated: ${copy.qty} × ${it ? it.name : 'item'}`, me().contact); UI.flashLine = copy.id; drawStep3(); UI.flashLine = null; save(); toast('Line duplicated'); };
+A.delLine = t => { const d = UI.draft, i = d.lines.findIndex(x => x.id === t.dataset.id), l = d.lines[i], it = byId('items', l.itemId); if (l.fromPlan && d.roomPlan && Array.isArray(d.roomPlan.units) && (l.planIds || []).length) { d.roomPlan.units = d.roomPlan.units.filter(u => (l.planIds || []).indexOf(u.id) < 0); d.roomPlan.savedAt = Date.now(); } d.lines.splice(i, 1); if (UI.bf.editing === l.id) UI.bf.editing = null; tlog(d, `Line removed: ${l.qty} × ${it ? it.name : 'item'}`, me().contact); drawStep3(); save(); toast(`Removed ${it ? it.name : 'line'}`, { action: { label: 'Undo', fn: () => { d.lines.splice(i, 0, l); d.timeline.pop(); drawStep3(); save(); } } }); };
 
 /* step 4 */
 function designSections() {
@@ -8561,7 +8608,7 @@ const ENT = {
 const entColl = key => ENT[key].coll || key;
 function entPage(key) {
   const E = ENT[key], f = UI.filters['e-' + key] = Object.assign({ s: '', act: '', x: '' }, UI.filters['e-' + key]);
-  const io = key === 'items' ? `<button class="btn btn-ghost" data-act="catImport">${ic('upload', 17)} Import from Excel</button><button class="btn btn-ghost" data-act="catExport">${ic('download', 17)} Export</button>` : '';
+  const io = `${key === 'items' ? `<button class="btn btn-ghost" data-act="catImport">${ic('upload', 17)} Import a price list</button>` : ''}<button class="btn btn-ghost" data-act="eioImport" data-key="${key}">${ic('upload', 17)} Import from Excel</button><button class="btn btn-ghost" data-act="eioExport" data-key="${key}">${ic('download', 17)} Export</button><button class="btn btn-ghost" data-act="eioFormat" data-key="${key}">${ic('info', 17)} Excel format</button>`;
   return `<div class="page-head"><div><h1>${E.title}</h1><p>${E.sub}</p></div><div class="actions">${io}<button class="btn btn-primary" data-act="entNew" data-key="${key}">${ic('plus', 17)} New ${E.one}</button></div></div>
   <section class="card"><div class="filters"><div class="input-wrap">${ic('search', 16)}<input class="input" data-in="entf" data-key="${key}" data-k="s" placeholder="Search ${E.title.toLowerCase()}" value="${esc(f.s)}"></div>
     ${E.filter ? `<select class="select" data-chg="entf" data-key="${key}" data-k="x" aria-label="Filter"><option value="">${E.filter.all}</option>${E.filter.opts().map(([v, l]) => `<option value="${v}" ${String(f.x) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>` : ''}
@@ -8724,7 +8771,7 @@ function buildQuotePdf(q, t) {
   fin.forEach(([k, v, col], i) => { const y = Y0 + Math.floor(i / 3) * 18; const x = M + fw * (i % 3); doc.setDrawColor(...line); doc.setLineWidth(.3); doc.roundedRect(x, y, fw - 3, 15, 1.5, 1.5, 'S'); let tx = x + 4; if (col) { doc.setFillColor(...hexRgb(col.hex)); doc.setDrawColor(190, 185, 175); doc.roundedRect(x + 3, y + 3, 7, 7, 1, 1, 'FD'); tx = x + 13; } T(k, tx, y + 5.5, { s: 7, c: muted }); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...ink); doc.text(doc.splitTextToSize(pdfTxt(v), fw - (tx - x) - 5).slice(0, 2), tx, y + 9.5); });
   y += 21 + Math.ceil(fin.length / 3) * 18;
   // items
-  const body = q.lines.map((l, i) => { const k = t.calcs[i], it = k.item; const sub = [needsHanging(it) ? 'Hanging: ' + hangingTxt(l, it) : '', needsLegs(it) ? 'Legs: ' + legTxt(l, it) : '', needsDoorLayout(it) ? 'Doors: ' + doorLayoutTxt(l, it) : '', needsSides(it) ? 'Side widths: ' + sidesTxt(l, it) : '', needsSections(it) ? 'Sections: ' + sectionTxt(l, it) : '', needsBlank(it) ? 'Blank size: ' + (l.blank == null || l.blank === '' ? 'not given' : l.blank + ' mm') : '', k.specs.length ? `Door fronts: ${specText(k.specs)} · ${st.name} · ${pdfMoney(k.doorPer)} per unit` : '', l.comment ? `Comment: ${l.comment}` : '', l.remarks ? `Remarks: ${l.remarks}` : '', (l.files || []).length ? `Files: ${l.files.map(f => f.name).join(', ')}` : ''].filter(Boolean).join('\n');
+  const body = q.lines.map((l, i) => { const k = t.calcs[i], it = k.item; const sub = [needsHanging(it) ? 'Hanging: ' + hangingTxt(l, it) : '', needsLegs(it) ? 'Legs: ' + legTxt(l, it) : '', needsDoorLayout(it) ? 'Doors: ' + doorLayoutTxt(l, it) : '', needsSides(it) ? (needsSideDepths(it) ? 'Sides: ' : 'Side widths: ') + sidesTxt(l, it) : '', needsSections(it) ? 'Sections: ' + sectionTxt(l, it) : '', needsBlank(it) ? 'Blank size: ' + (l.blank == null || l.blank === '' ? 'not given' : l.blank + ' mm') : '', k.specs.length ? `Door fronts: ${specText(k.specs)} · ${st.name} · ${pdfMoney(k.doorPer)} per unit` : '', l.comment ? `Comment: ${l.comment}` : '', l.remarks ? `Remarks: ${l.remarks}` : '', (l.files || []).length ? `Files: ${l.files.map(f => f.name).join(', ')}` : ''].filter(Boolean).join('\n');
     return [String(i + 1), { content: (it ? it.name : 'Removed item') + (sub ? '\n' + sub : ''), sub: !!sub }, it ? it.code : '-', String(l.qty), String(l.h), String(l.w), String(l.d), pdfMoney(k.unit), pdfMoney(k.total)]; });
   doc.autoTable({
     startY: y, margin: { left: M, right: M, bottom: 20 }, theme: 'plain',
@@ -8880,12 +8927,12 @@ function syncPlanLines(lines, plan) {
   const kept = d.lines.filter(l => !l.fromPlan);
   const made = lines.map(l => {
     const prev = old[keyOf(l)];
-    if (prev) { prev.qty = l.qty; return prev; }
+    if (prev) { prev.qty = l.qty; prev.planIds = l.ids || []; return prev; }
     return {
       id: uid('ln'), itemId: l.itemId, qty: l.qty, h: l.h, w: l.w, d: l.d,
-      blank: l.blank == null ? null : l.blank, topDoor: null, bottomType: null, leftW: null, rightW: null,
+      blank: l.blank == null ? null : l.blank, topDoor: null, bottomType: null, leftW: null, rightW: null, leftD: null, rightD: null,
       doorLayout: l.doorLayout || 'split', legs: l.legs || null, hanging: l.hanging || 'single',
-      comment: 'From room planner', remarks: '', noDoors: false, files: [], fromPlan: true
+      comment: 'From room planner', remarks: '', noDoors: false, files: [], fromPlan: true, planIds: l.ids || []
     };
   });
   d.lines = kept.concat(made);
@@ -8893,6 +8940,44 @@ function syncPlanLines(lines, plan) {
   if (UI.bs) UI.bs.max = Math.max(UI.bs.max || 1, 1);
   delete UI.errors.lines;
   save();
+}
+/* A line the planner owns can be resized from the quote builder: the change is
+   written straight back onto the units it stands for, so the plan, the 2D drawing
+   and the 3D view all follow. Changing the quantity adds or removes units. */
+function applyLineToPlan(line) {
+  const d = UI.draft, plan = d && d.roomPlan;
+  if (!plan || !Array.isArray(plan.units) || !line || !line.fromPlan) return false;
+  const ids = line.planIds || [];
+  let units = plan.units.filter(u => ids.indexOf(u.id) >= 0);
+  if (!units.length) return false;
+  const wallLen = i => ((plan.path || [])[i] || {}).len || 0;
+  const fit = u => { u.off = Math.max(0, Math.min(Math.max(0, wallLen(u.edgeIdx) - u.w), u.off || 0)); };
+  units.forEach(u => {
+    if (+line.w > 0) u.w = +line.w;
+    if (+line.h > 0) u.h = +line.h;
+    if (+line.d > 0) u.d = +line.d;
+    if (line.blank !== undefined) u.blank = line.blank;
+    if (line.doorLayout) u.doorLayout = line.doorLayout;
+    if (line.hanging) u.hanging = line.hanging;
+    if (line.legs !== undefined) u.legs = line.legs || '';
+    fit(u);
+  });
+  const want = Math.max(1, Math.round(+line.qty || 1));
+  while (units.length > want) {
+    const gone = units.pop();
+    plan.units = plan.units.filter(u => u.id !== gone.id);
+  }
+  while (units.length < want) {
+    const src = units[units.length - 1], copy = clone(src);
+    plan.nid = (plan.nid || plan.units.length) + 1;
+    copy.id = plan.nid;
+    copy.off = (src.off || 0) + src.w;
+    fit(copy);
+    plan.units.push(copy); units.push(copy);
+  }
+  line.planIds = units.map(u => u.id);
+  plan.savedAt = Date.now();
+  return true;
 }
 function plannerLines(lines, plan) {
   const d = UI.draft;
@@ -8902,7 +8987,7 @@ function plannerLines(lines, plan) {
     if (ex) { ex.qty += l.qty; return; }
     d.lines.push({
       id: uid('ln'), itemId: l.itemId, qty: l.qty, h: l.h, w: l.w, d: l.d,
-      blank: l.blank == null ? null : l.blank, topDoor: null, bottomType: null, leftW: null, rightW: null, doorLayout: l.doorLayout || 'split', legs: l.legs || null, hanging: l.hanging || 'single',
+      blank: l.blank == null ? null : l.blank, topDoor: null, bottomType: null, leftW: null, rightW: null, leftD: null, rightD: null, doorLayout: l.doorLayout || 'split', legs: l.legs || null, hanging: l.hanging || 'single',
       comment: 'From room planner', remarks: '', noDoors: false, files: [], fromPlan: true
     });
   });
@@ -8972,6 +9057,283 @@ load();
 if (UI.route.startsWith('a-') && !UI.session.adminId) UI.route = 'admin-login';
 render();
 storageWarning();
+
+/* ═══════════════════════════════════════════════════════════════
+   Excel for every admin list — import, export, and a popup that
+   shows exactly which columns the sheet needs. One engine, driven
+   by each list's own ENT.fields, so a new field needs no extra work.
+   ═══════════════════════════════════════════════════════════════ */
+const ENT_PREFIX = { items: 'it', categories: 'cat', rooms: 'rm', cabColours: 'cc', doorColours: 'dc', doorStyles: 'ds', edgingColours: 'ec', drawerTypes: 'dt', worktopColours: 'wt', legTypes: 'lg', finishNotes: 'fn', users: 'u', customers: 'c' };
+const EIO = { key: null, file: null, res: null, err: null, updates: true };
+const eioNorm = v => String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9]/g, '');
+const eioYes = v => /^(y|yes|1|true|on|active|live|enabled)$/i.test(String(v == null ? '' : v).trim());
+
+/* the columns a list's sheet carries, built from its own form fields */
+function eioSpec(key) {
+  const E = ENT[key];
+  const cols = E.fields.filter(F => F.type !== 'image').map(F => ({
+    k: F.k, l: F.l, type: F.type || 'text', req: !!F.req, hint: F.hint || '',
+    opts: F.type === 'select' && F.opts ? F.opts() : null
+  }));
+  const kf = cols.find(c => c.k === 'code') || cols.find(c => c.k === 'email') || cols.find(c => c.k === 'name') || cols[0];
+  return { E, key, cols, keyK: kf.k, keyL: kf.l };
+}
+/* what goes in a cell, in words, for the format popup and the Format sheet */
+function eioAccepts(c) {
+  if (c.type === 'toggle') return 'Yes or No';
+  if (c.type === 'number') return 'A number' + (/\(mm\)/.test(c.l) ? ' in mm' : /\(£\)/.test(c.l) ? ' in pounds' : /%/.test(c.l) ? ' as a percentage' : '');
+  if (c.type === 'color') return 'A hex colour, e.g. #C9C4B8';
+  if (c.type === 'rooms') return 'Room names separated by commas, or "All rooms"';
+  if (c.type === 'select') return 'One of: ' + (c.opts || []).map(o => o[1]).join(' · ');
+  if (c.type === 'textarea') return 'Free text';
+  return 'Text';
+}
+function eioCell(c, o) {
+  const v = o[c.k];
+  if (c.type === 'toggle') return v ? 'Yes' : 'No';
+  if (c.type === 'rooms') return (v || []).includes('all') ? 'All rooms' : (v || []).map(r => roomLabel(r)).join(', ');
+  if (c.type === 'select') { const m = (c.opts || []).find(o2 => String(o2[0]) === String(v)); return m ? m[1] : (v == null ? '' : String(v)); }
+  if (c.type === 'number') return +v || 0;
+  return v == null ? '' : String(v);
+}
+/* a cell from the sheet -> the value the record stores */
+function eioVal(c, raw, warn) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (c.type === 'toggle') return s === '' ? undefined : eioYes(s);
+  if (c.type === 'number') { if (s === '') return undefined; const n = parseFloat(s.replace(/[£$,\s%]/g, '')); return isFinite(n) ? n : undefined; }
+  if (c.type === 'color') { const h = s.replace(/^#?/, '#').toUpperCase(); return /^#[0-9A-F]{6}$/.test(h) ? h : undefined; }
+  if (c.type === 'rooms') {
+    if (!s) return undefined;
+    if (/^all( rooms)?$/i.test(s)) return ['all'];
+    const out = [];
+    s.split(/[,;/]+/).forEach(bit => {
+      const n = eioNorm(bit); if (!n) return;
+      const r = DB.rooms.find(r2 => eioNorm(r2.name) === n || eioNorm(r2.id) === n);
+      if (r) out.push(r.id); else warn.push('no room called "' + bit.trim() + '"');
+    });
+    return out.length ? out : undefined;
+  }
+  if (c.type === 'select') {
+    if (!s) return undefined;
+    const n = eioNorm(s), m = (c.opts || []).find(o => eioNorm(o[0]) === n || eioNorm(o[1]) === n);
+    if (m) return m[0];
+    warn.push('"' + s + '" is not a choice for ' + c.l);
+    return undefined;
+  }
+  return s === '' ? undefined : s;
+}
+
+/* ---------- read a sheet against one list ---------- */
+function eioRead(sp, rows) {
+  const out = { create: [], update: [], same: 0, bad: [], warn: [] };
+  if (!rows.length) { out.error = 'That sheet is empty.'; return out; }
+  // find the header row: the one that names the key column
+  let hr = -1, map = null;
+  for (let r = 0; r < Math.min(rows.length, 20); r++) {
+    const m = {}, row = rows[r] || [];
+    row.forEach((cell, i) => {
+      const n = eioNorm(cell); if (!n) return;
+      if (n === 'id' && m.__id == null) { m.__id = i; return; }
+      sp.cols.forEach(c => { if (m[c.k] == null && (n === eioNorm(c.l) || n === eioNorm(c.k) || n === eioNorm(c.l.replace(/\(.*\)/, '')))) m[c.k] = i; });
+    });
+    if (m[sp.keyK] != null) { hr = r; map = m; break; }
+  }
+  if (hr < 0) { out.error = 'No header row found. The sheet needs a column called "' + sp.keyL + '". Open "Excel format" to see every column.'; return out; }
+  out.header = sp.cols.filter(c => map[c.k] != null).map(c => c.l);
+  const coll = DB[entColl(sp.key)], seen = {};
+  for (let r = hr + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const keyRaw = String(row[map[sp.keyK]] == null ? '' : row[map[sp.keyK]]).trim();
+    const idRaw = map.__id != null ? String(row[map.__id] == null ? '' : row[map.__id]).trim() : '';
+    if (!keyRaw && !idRaw) continue;
+    if (eioNorm(keyRaw) === eioNorm(sp.keyL)) continue;        // a repeated heading
+    const warn = [], vals = {};
+    sp.cols.forEach(c => { if (map[c.k] == null) return; const v = eioVal(c, row[map[c.k]], warn); if (v !== undefined) vals[c.k] = v; });
+    const kk = eioNorm(keyRaw);
+    if (kk && seen[kk]) { out.bad.push({ row: r + 1, why: 'repeats ' + sp.keyL + ' "' + keyRaw + '" from earlier in the sheet' }); continue; }
+    if (kk) seen[kk] = 1;
+    const ex = (idRaw && coll.find(o => o.id === idRaw)) || (kk && coll.find(o => eioNorm(o[sp.keyK]) === kk)) || null;
+    if (!ex) {
+      const miss = sp.cols.filter(c => c.req && !String(vals[c.k] == null ? '' : vals[c.k]).trim()).map(c => c.l);
+      if (miss.length) { out.bad.push({ row: r + 1, why: 'new row with no ' + miss.join(' and ') }); continue; }
+      out.create.push({ row: r + 1, vals, warn, label: keyRaw });
+    } else {
+      const chg = Object.keys(vals).filter(k => {
+        const c = sp.cols.find(x => x.k === k);
+        if (c && c.type === 'rooms') return (ex.rooms || []).join(',') !== vals[k].join(',');
+        if (c && c.type === 'number') return (+ex[k] || 0) !== (+vals[k] || 0);
+        if (c && c.type === 'toggle') return !!ex[k] !== !!vals[k];
+        return String(ex[k] == null ? '' : ex[k]) !== String(vals[k]);
+      });
+      if (!chg.length) out.same++;
+      else out.update.push({ row: r + 1, vals, warn, label: keyRaw || ex.name || ex.id, ex, chg });
+    }
+    warn.forEach(w => out.warn.push('Row ' + (r + 1) + ': ' + w));
+  }
+  return out;
+}
+
+/* ---------- write it in ---------- */
+function eioApply(sp) {
+  const res = EIO.res, E = sp.E, coll = DB[entColl(sp.key)];
+  let made = 0, upd = 0, blocked = [];
+  res.create.forEach(c => {
+    if ((sp.key === 'users' || sp.key === 'customers') && !seatOK(sp.key)) { blocked.push(c.label); return; }
+    const o = Object.assign(E.defaults(), c.vals);
+    const err = E.check ? E.check(o, null) : {};
+    if (Object.keys(err).length) { blocked.push(c.label + ' — ' + Object.values(err)[0]); return; }
+    o.id = uid(ENT_PREFIX[sp.key] || 'x');
+    if (sp.key === 'customers' && !o.created) o.created = now();
+    E.prep && E.prep(o);
+    coll.push(o); made++;
+  });
+  if (EIO.updates) res.update.forEach(c => {
+    const err = E.check ? E.check(Object.assign({}, c.ex, c.vals), c.ex.id) : {};
+    if (Object.keys(err).length) { blocked.push(c.label + ' — ' + Object.values(err)[0]); return; }
+    Object.assign(c.ex, c.vals); E.prep && E.prep(c.ex); upd++;
+  });
+  return { made, upd, blocked };
+}
+
+/* ---------- the three buttons ---------- */
+function eioBook(key, mode) {
+  const x = window.XLSX; if (!x) { toast('The spreadsheet reader did not load.', { err: 1 }); return null; }
+  const sp = eioSpec(key), head = ['ID'].concat(sp.cols.map(c => c.l));
+  const body = mode === 'template' ? [] : DB[entColl(key)].map(o => [o.id].concat(sp.cols.map(c => eioCell(c, o))));
+  if (mode === 'template') {
+    const d = sp.E.defaults();
+    body.push([''].concat(sp.cols.map(c => c.k === sp.keyK ? 'EXAMPLE — replace this row' : eioCell(c, d))));
+  }
+  const wb = x.utils.book_new(), ws = x.utils.aoa_to_sheet([head].concat(body));
+  ws['!cols'] = head.map((h, i) => ({ wch: Math.min(34, Math.max(10, String(h).length + 3 + (i ? 0 : 8))) }));
+  x.utils.book_append_sheet(wb, ws, sp.E.title.slice(0, 28));
+  const fmt = [['Column', 'Required', 'What goes in it'], ['ID', 'No', 'Leave blank for a new row. Keep it when you exported, and the row is updated instead of added.']]
+    .concat(sp.cols.map(c => [c.l, c.req ? 'Yes' : 'No', eioAccepts(c) + (c.hint ? ' — ' + c.hint : '')]));
+  fmt.push([], ['How it works', '', ''],
+    ['', '', 'Rows are matched on ' + sp.keyL + ' (or on ID when you kept it), so importing the same sheet twice updates rather than duplicates.'],
+    ['', '', 'Only the columns your sheet has are touched. Delete a column to leave that setting alone.'],
+    ['', '', 'Nothing is saved until you press Import in the preview.']);
+  const wf = x.utils.aoa_to_sheet(fmt);
+  wf['!cols'] = [{ wch: 34 }, { wch: 10 }, { wch: 82 }];
+  x.utils.book_append_sheet(wb, wf, 'Format');
+  return { x, wb, sp };
+}
+function eioDownload(key, mode) {
+  const b = eioBook(key, mode); if (!b) return;
+  const out = b.x.write(b.wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'easy-cab-builder-' + key.replace(/[A-Z]/g, m => '-' + m.toLowerCase()) + (mode === 'template' ? '-template' : '') + '.xlsx';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 400);
+  toast(mode === 'template' ? 'Blank template downloaded. Fill it in and import it back.' : DB[entColl(key)].length + ' ' + b.sp.E.title.toLowerCase() + ' exported. Edit the sheet and import it back.');
+}
+A.eioExport = t => eioDownload(t.dataset.key, 'all');
+A.eioTemplate = t => eioDownload(t.dataset.key, 'template');
+
+A.eioFormat = t => {
+  const key = t.dataset.key, sp = eioSpec(key);
+  openModal(`${modalHead('Excel format — ' + sp.E.title, 'The sheet your file needs. Only the columns you include are changed, so you can import one column at a time.')}
+  <div class="modal-b">
+    <div class="alert info" style="display:block;margin:0 0 14px"><b>Rows are matched on ${esc(sp.keyL)}.</b> Import the same sheet twice and it updates those rows instead of adding them again. Keep the <b>ID</b> column from an export and matching is exact, even if you rename something.</div>
+    <div style="max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+      <table class="tbl"><thead><tr><th>Column</th><th>Required</th><th>What goes in it</th></tr></thead><tbody>
+      <tr><td class="strong">ID</td><td><span class="muted">No</span></td><td class="ink2">Blank for a new row. From an export, keep it and the row is updated.</td></tr>
+      ${sp.cols.map(c => `<tr><td class="strong">${esc(c.l)}</td><td>${c.req ? '<span class="tag">Yes</span>' : '<span class="muted">No</span>'}</td><td class="ink2" style="font-size:12.5px">${esc(eioAccepts(c))}${c.hint ? ' <span class="muted">— ' + esc(c.hint) + '</span>' : ''}</td></tr>`).join('')}
+      </tbody></table></div>
+    <p class="hint" style="margin-top:12px">Accepts .xlsx, .xlsm and .csv. The header can be on any of the first 20 rows, and extra columns are ignored. Nothing is saved until you press Import in the preview.</p>
+  </div>
+  <div class="modal-f"><button class="btn btn-ghost" data-act="eioTemplate" data-key="${key}">${ic('download', 16)} Blank template</button>
+    <button class="btn btn-ghost" data-act="eioExport" data-key="${key}">${ic('download', 16)} Export what's there</button>
+    <button class="btn btn-primary" data-act="eioImport" data-key="${key}">${ic('upload', 16)} Import a file</button></div>`, 'lg');
+};
+
+A.eioImport = t => {
+  if (!window.XLSX) { toast('The spreadsheet reader did not load.', { err: 1 }); return; }
+  EIO.key = t.dataset.key; EIO.file = null; EIO.res = null; EIO.err = null; EIO.updates = true;
+  openModal(eioHTML(), 'lg');
+};
+A.eioPick = () => { const i = $('#eioFile'); if (i) i.click(); };
+CH.eioFile = t => {
+  const f = t.files[0]; if (!f) return;
+  EIO.file = f; EIO.res = null; EIO.err = null;
+  $('#eioBody').innerHTML = `<div class="empty" style="padding:30px"><b>Reading ${esc(f.name)}…</b></div>`;
+  const fr = new FileReader();
+  fr.onerror = () => { EIO.err = 'That file could not be read.'; eioPaint(); };
+  fr.onload = () => {
+    const sp = eioSpec(EIO.key);
+    try {
+      const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' });
+      let best = null;
+      wb.SheetNames.forEach(n => {
+        if (/^format$/i.test(n)) return;
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' });
+        const r = eioRead(sp, rows);
+        if (!r.error && (!best || (r.create.length + r.update.length + r.same) > (best.res.create.length + best.res.update.length + best.res.same))) best = { sheet: n, res: r };
+        if (!best && r.error) EIO.err = r.error;
+      });
+      if (best) { EIO.res = best.res; EIO.sheet = best.sheet; EIO.err = null; }
+      else if (!EIO.err) EIO.err = 'Nothing in that file matched the ' + sp.E.title + ' columns.';
+    } catch (e) { EIO.err = 'That is not a spreadsheet this can open (' + (e.message || e) + ').'; }
+    eioPaint();
+  };
+  fr.readAsArrayBuffer(f);
+};
+CH.eioUpdates = t => { EIO.updates = t.checked; const f = $('#eioFoot'); if (f) f.innerHTML = eioFoot(); };
+function eioPaint() { const b = $('#eioBody'); if (b) b.innerHTML = eioBody(); const f = $('#eioFoot'); if (f) f.innerHTML = eioFoot(); }
+
+A.eioGo = () => {
+  const sp = eioSpec(EIO.key), out = eioApply(sp);
+  save(); closeModal(); refreshMain();
+  const bits = [];
+  if (out.made) bits.push(out.made + ' added');
+  if (out.upd) bits.push(out.upd + ' updated');
+  toast((bits.join(', ') || 'Nothing changed') + ' in ' + sp.E.title + (out.blocked.length ? ' · ' + out.blocked.length + ' row' + (out.blocked.length === 1 ? '' : 's') + ' skipped: ' + out.blocked.slice(0, 2).join('; ') : '.'), { err: !!out.blocked.length });
+};
+
+function eioHTML() {
+  const sp = eioSpec(EIO.key);
+  return `${modalHead('Import ' + sp.E.title.toLowerCase() + ' from Excel', 'Rows are matched on ' + sp.keyL + ', so the same sheet can be imported again to update. Nothing is saved until you press Import.')}
+  <div class="modal-b" id="eioBody">${eioBody()}</div>
+  <div class="modal-f" id="eioFoot">${eioFoot()}</div>
+  <input type="file" id="eioFile" accept=".xlsx,.xlsm,.xls,.csv" data-chg="eioFile" hidden>`;
+}
+function eioBody() {
+  const sp = eioSpec(EIO.key), res = EIO.res;
+  if (EIO.err) return `<div class="alert" style="margin:0 0 14px">${esc(EIO.err)}</div>${eioDrop(sp)}`;
+  if (!EIO.file) return eioDrop(sp);
+  if (!res) return `<div class="empty" style="padding:30px"><b>Reading ${esc(EIO.file.name)}…</b></div>`;
+  const stat = (n, l, tone) => `<div style="flex:1;min-width:104px;background:var(--surface-2);border-radius:10px;padding:11px 13px">
+    <div class="tnum" style="font-size:21px;font-weight:800;line-height:1.1${tone ? ';color:' + tone : ''}">${n}</div><div class="hint" style="margin:2px 0 0">${l}</div></div>`;
+  const rows = res.create.concat(res.update).slice(0, 12), shown = sp.cols.slice(0, 5);
+  return `<div class="row" style="justify-content:space-between;gap:10px;margin-bottom:14px">
+      <div><b>${esc(EIO.file.name)}</b><div class="hint">Sheet “${esc(EIO.sheet)}” · columns read: ${esc((res.header || []).join(', ')) || '—'}</div></div>
+      <button class="btn btn-ghost btn-sm" data-act="eioPick">Choose another file</button></div>
+    <div class="row" style="gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      ${stat(res.create.length, 'New rows', 'var(--olive)')}${stat(res.update.length, 'Changed')}${stat(res.same, 'Already correct')}${stat(res.bad.length, 'Rows skipped', res.bad.length ? '#b4483c' : '')}</div>
+    ${res.bad.length ? `<div class="alert" style="margin-bottom:14px;display:block"><b>${res.bad.length} row${res.bad.length === 1 ? '' : 's'} skipped.</b> ${res.bad.slice(0, 5).map(b => 'Row ' + b.row + ' ' + esc(b.why)).join(' · ')}${res.bad.length > 5 ? ' …' : ''}</div>` : ''}
+    ${res.warn.length ? `<div class="alert info" style="margin-bottom:14px;display:block"><b>Ignored in otherwise good rows:</b> ${res.warn.slice(0, 5).map(esc).join(' · ')}${res.warn.length > 5 ? ' …' : ''}</div>` : ''}
+    ${rows.length ? `<div style="max-height:270px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+      <table class="tbl"><thead><tr>${shown.map(c => `<th>${esc(c.l)}</th>`).join('')}<th></th></tr></thead><tbody>
+      ${rows.map(c => `<tr>${shown.map(x => `<td>${esc(String(c.vals[x.k] !== undefined ? eioCell(x, c.vals) : (c.ex ? eioCell(x, c.ex) : '')))}</td>`).join('')}
+        <td>${c.ex ? `<span class="tag">Update</span>` : '<span class="tag olive">New</span>'}</td></tr>`).join('')}
+      </tbody></table></div>
+      ${res.create.length + res.update.length > 12 ? `<div class="hint" style="margin-top:8px">Showing the first 12 of ${res.create.length + res.update.length}.</div>` : ''}` : ''}`;
+}
+function eioDrop(sp) {
+  return `<div class="drop" data-act="eioPick" role="button" tabindex="0"><span class="ib">${ic('upload', 22)}</span>
+      <b>Choose a file</b><span class="hint">.xlsx, .xlsm or .csv — it needs a column called “${esc(sp.keyL)}”. Every other column is optional.</span></div>
+    <div class="hint" style="margin-top:14px">Columns: <b>${sp.cols.map(c => esc(c.l) + (c.req ? ' *' : '')).join(' · ')}</b>. Starred ones are required on a new row. Extra columns are ignored, and the header can sit on any of the first 20 rows.</div>
+    <div class="row" style="gap:8px;margin-top:14px"><button class="btn btn-ghost btn-sm" data-act="eioFormat" data-key="${sp.key}">${ic('info', 15)} What the sheet must look like</button>
+      <button class="btn btn-ghost btn-sm" data-act="eioTemplate" data-key="${sp.key}">${ic('download', 15)} Blank template</button>
+      <button class="btn btn-ghost btn-sm" data-act="eioExport" data-key="${sp.key}">${ic('download', 15)} Export what's there</button></div>`;
+}
+function eioFoot() {
+  const res = EIO.res, n = res ? res.create.length + (EIO.updates ? res.update.length : 0) : 0;
+  return `${res && res.update.length ? `<label class="toggle" style="margin-right:auto"><input type="checkbox" data-chg="eioUpdates" ${EIO.updates ? 'checked' : ''}><span class="tr"></span><span>Update the ${res.update.length} row${res.update.length === 1 ? '' : 's'} that changed</span></label>` : '<span style="margin-right:auto"></span>'}
+    <button class="btn btn-ghost" data-act="closeModal">Cancel</button>
+    <button class="btn btn-primary" data-act="eioGo" ${n ? '' : 'disabled'}>${n ? 'Import ' + n + ' row' + (n === 1 ? '' : 's') : 'Nothing to import'}</button>`;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    Catalogue import / export — read a supplier price list straight
