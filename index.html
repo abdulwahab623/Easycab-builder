@@ -947,6 +947,12 @@ button.kpi:hover{border-color:var(--olive);box-shadow:var(--shadow-lg)}
 .rp-stage{flex:1;position:relative;overflow:hidden;background:var(--bg,#f6f5f2);min-width:0}
 .rp-svg{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .rp-ov{position:absolute;inset:0;pointer-events:none}
+.rp-view-controls{position:absolute;top:14px;left:14px;right:14px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:auto}
+.rp-view-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;background:rgba(255,255,255,.94);color:#344d52;border:1px solid #d4e2df;border-radius:12px;padding:8px 10px;box-shadow:0 4px 15px #203b3020;font-size:11px}
+.rp-view-bar input[type=range]{width:110px;accent-color:#218d80;cursor:pointer}
+.rp-view-bar button{border:1px solid #d7e3df;border-radius:7px;padding:6px 9px;background:#f7faf9;color:inherit;cursor:pointer;font:inherit}
+.rp-view-bar button:hover,.rp-view-bar button.on{background:#e0f4ee;border-color:#218d80;color:#147d70}
+.rp-view-bar button:focus-visible{outline:2px solid #218d80;outline-offset:2px}
 .rp-insp{width:236px;flex:none;background:var(--surface,#fff);border-left:1px solid var(--line,#e4e1da);overflow-y:auto;display:none}
 .rp-insp.on{display:block}
 
@@ -978,11 +984,25 @@ button.kpi:hover{border-color:var(--olive);box-shadow:var(--shadow-lg)}
 .rp-srch input{width:100%;height:34px;border:1px solid var(--line-2,#d6d2c8);border-radius:8px;
   background:var(--surface-2,#faf9f6);color:var(--ink,#1a1a1a);padding:0 10px;font:500 12.5px var(--font,inherit)}
 .rp-srch input:focus{outline:none;border-color:var(--accent,#7a6a52)}
-.rp-cats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:0 14px 10px}
-.rp-cat{min-width:0;padding:6px 5px;border:1.3px solid var(--line-2,#d6d2c8);border-radius:8px;font:700 10px/1.3 var(--font,inherit);
+.rp-cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:0 10px 8px}
+.rp-cat{min-width:0;min-height:30px;padding:4px 3px;border:1px solid var(--line-2,#d6d2c8);border-radius:7px;font:600 9px/1.25 var(--font,inherit);overflow-wrap:break-word;
   color:var(--muted,#6b6b6b);background:var(--surface-2,#faf9f6);cursor:pointer}
 .rp-cat-wide{grid-column:1/-1}
 .rp-cat.on,.rp-cat:hover{border-color:var(--accent,#7a6a52);color:var(--accent,#7a6a52);background:var(--accent-soft,rgba(122,106,82,.08))}
+.rp-cat:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rp-detail-compact .rp-detail-art{height:96px;margin:6px 10px 3px}
+.rp-detail-compact .rp-detail-head{padding:6px 10px}.rp-detail-compact .rp-detail-head b{font-size:12px}
+.rp-detail-compact .rp-detail-head .pr{font-size:12px;right:10px;top:6px}
+.rp-detail-compact .rp-sec{padding:5px 10px;font-size:9px}
+.rp-detail-compact .rp-note{padding:5px 10px;font-size:10px;line-height:1.35}
+.rp-detail-compact>.rp-row{padding:6px 10px}
+.rp-detail-compact .rp-chips{padding:6px 10px;gap:4px}
+.rp-detail-compact .rp-chip{padding:5px 4px;min-width:0;min-height:29px;font-size:10px;line-height:1.25}
+.rp-detail-compact .rp-width-options{display:grid;grid-template-columns:repeat(6,minmax(0,1fr))}
+.rp-detail-compact .rp-three-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.rp-detail-compact .rp-three-options .rp-chip{font-family:var(--font,inherit);font-size:9px;overflow-wrap:break-word}
+.rp-detail-compact .rp-add{position:sticky;bottom:8px;width:calc(100% - 20px);margin:8px 10px;padding:10px;z-index:2;box-shadow:0 0 0 5px var(--surface,#fff),0 4px 12px #203b3025}
+@media(max-height:700px){.rp-detail-compact .rp-detail-art{height:76px}.rp-detail-compact .rp-chips{padding-top:4px;padding-bottom:4px}.rp-detail-compact .rp-chip{min-height:26px}}
 .rp-units{padding:0 8px 16px}
 .rp-u{display:flex;align-items:center;gap:10px;width:100%;padding:8px;border:1.4px solid transparent;border-radius:8px;
   background:none;text-align:left;cursor:pointer;border-bottom:1px solid var(--line,#e4e1da)}
@@ -1214,6 +1234,41 @@ body.rp-open .demo-bar{display:none!important}
 .rp-side,.rp-insp{scrollbar-width:thin;scrollbar-color:#bdcec4 transparent}
 .rp-side::-webkit-scrollbar,.rp-insp::-webkit-scrollbar{width:6px}
 .rp-side::-webkit-scrollbar-thumb,.rp-insp::-webkit-scrollbar-thumb{background:#bdcec4;border-radius:8px}
+.rp-wall-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px 10px}
+.rp-type-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:7px 10px}
+.rp-type-card{display:flex;align-items:center;justify-content:space-between;gap:3px;min-width:0;min-height:38px;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink);font:600 10px/1.3 var(--font,inherit);text-align:left;cursor:pointer}
+.rp-type-card:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.rp-type-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rp-wall-card{min-width:0;border:1px solid var(--line);border-radius:9px;padding:6px;background:var(--surface-2)}
+.rp-wall-card>b{display:block;font-size:11px;margin-bottom:3px}.rp-wall-card small{font-weight:400;color:var(--muted)}
+.rp-wall-card .rp-f{padding:3px 0;border:0;gap:3px}.rp-wall-card .rp-f label{font-size:10px}
+.rp-wall-card .rp-f input{min-width:0;width:70px;height:26px;padding:0 3px;font-size:11px}
+.rp-room-compact .rp-sec{padding:6px 12px;font-size:9px}
+.rp-room-compact .rp-room-grid{gap:4px;padding:5px 10px}
+.rp-room-compact .rp-room-grid .rp-row{padding:5px 7px;gap:1px;font-size:10px;line-height:1.25}
+.rp-room-compact .rp-room-grid .rp-row .v{font-size:11px}
+.rp-room-compact>.rp-row{padding:7px 12px}
+.rp-opening-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px}
+.rp-unit-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:7px 8px}
+.rp-unit-fields .rp-f{min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;padding:6px;border:1px solid var(--line);border-radius:8px;gap:4px}
+.rp-unit-fields .rp-f label{font-size:10px;line-height:1.3}
+.rp-unit-fields .rp-f input,.rp-unit-fields .rp-f select{min-width:0;width:100%;box-sizing:border-box;height:28px;font-size:11px}
+.rp-unit-compact .rp-sec{padding:5px 10px;font-size:9px}
+.rp-unit-compact>.rp-row{padding:7px 10px;font-size:11px}
+.rp-unit-compact .rp-chips{padding:6px 8px;gap:4px}
+.rp-unit-compact .rp-chip{padding:5px 4px;min-height:28px;min-width:0;font-size:10px;line-height:1.25}
+.rp-unit-compact .rp-three-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.rp-unit-compact .rp-three-options .rp-chip{font-family:var(--font,inherit);font-size:9px;overflow-wrap:break-word}
+.rp-unit-compact .rp-note{padding:5px 8px;font-size:10px;line-height:1.3}
+.rp-opening-fields .rp-f{min-width:0;flex-direction:column;align-items:stretch;justify-content:space-between;padding:7px;border:1px solid var(--line);border-radius:8px;gap:5px}
+.rp-opening-fields .rp-f label{font-size:10px;line-height:1.3}
+.rp-opening-fields .rp-f input{width:100%;min-width:0;box-sizing:border-box}
+.rp-opening-compact .rp-sec,.rp-opening-compact .rp-row{padding:7px 10px}
+.rp-fixture-grid{position:absolute;inset:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,210px));gap:12px;padding:16px;align-content:start;justify-content:center}
+.rp-fixture-grid>h2{grid-column:1/-1}
+.rp-fixture-grid .rp-fixcard{width:100%;min-width:0}
+.rp-fixture-grid .rp-fixart{height:clamp(65px,14vh,110px)}
+@media(max-height:700px){.rp-room-compact .rp-tabs{margin:5px}.rp-room-compact .rp-tab{padding:7px 4px}.rp-room-compact .rp-wall-grid{padding:5px 8px;gap:4px}.rp-room-compact .rp-wall-card{padding:4px}.rp-room-compact .rp-room-grid .rp-row{padding:4px 6px}}
 .rp-stage{background:radial-gradient(ellipse at 50% 40%,#fff 0,#f1f4f2 70%)}
 .rp-tabs{gap:4px;margin:12px;padding:4px;border:1px solid var(--line);border-radius:12px;background:#edf2ee}
 .rp-tab{border:0;border-radius:8px;font-size:10px;padding:11px 6px;letter-spacing:.07em}
@@ -2847,7 +2902,7 @@ body.rp-open .demo-bar{display:none!important}
       var t = 18, g = new THREE.Group();
 
       var reveal = new THREE.Mesh(new THREE.PlaneGeometry(w + 14, h + 14), matReveal);
-      reveal.position.z = -14;
+      reveal.position.z = -14; reveal.visible = false;
       g.add(reveal);
 
       if (profile === 'shaker' || profile === 'inset' || profile === 'raised') {
@@ -2894,6 +2949,7 @@ body.rp-open .demo-bar{display:none!important}
     }
 
     function handleOn(g, w, h, horizontal, hinge) {
+      g.userData.door = { width: w, hinge: hinge, drawer: horizontal };
       if (profile === 'jpull' || profile === 'gola' || profile === 'none') return;
       var len = Math.min(190, (horizontal ? w : h) * .45);
       var bar = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, len, 14), matHandle);
@@ -2955,7 +3011,8 @@ body.rp-open .demo-bar{display:none!important}
       }
 
       var grp = new THREE.Group();
-      grp.position.set(cMM.x + n.nx * u.d / 2, 0, -(cMM.y + n.ny * u.d / 2));
+      grp.userData.unitId = u.id;
+      grp.position.set(cMM.x + n.nx * (u.d / 2 + (+u.wallGap || 0)), 0, -(cMM.y + n.ny * (u.d / 2 + (+u.wallGap || 0))));
       grp.rotation.y = ang;
       scene.add(grp);
 
@@ -2977,7 +3034,7 @@ body.rp-open .demo-bar{display:none!important}
         var body = new THREE.Mesh(new THREE.BoxGeometry(hw, CARC, hd), matCarc);
         body.position.set(0, PLINTH + CARC / 2, 0);
         body.castShadow = shadows; body.receiveShadow = shadows; grp.add(body);
-        if (hw >= 800) {
+        if (hw > 600) {
           var half = (hw - gp * 3) / 2;
           var dl = doorPanel(half, CARC - gp * 2, grp, -(half + gp) / 2, PLINTH + CARC / 2, fz);
           var dr2 = doorPanel(half, CARC - gp * 2, grp, (half + gp) / 2, PLINTH + CARC / 2, fz);
@@ -3072,7 +3129,7 @@ body.rp-open .demo-bar{display:none!important}
       if (poly) {
         carc = new THREE.Mesh(prism(THREE, poly, u.h), carcMat);
         carc.position.y = z0;
-      } else if (noDoors && !isAppl) {
+      } else if (!isAppl) {
         /* with the fronts off, the carcass is built as real panels so the
            inside is actually open and the shelves read */
         carc = new THREE.Group();
@@ -3185,30 +3242,6 @@ body.rp-open .demo-bar{display:none!important}
             if (u.doorLayout === 'full' || cat === 'cat-robe') { var fullD = doorPanel(panelW, u.h - gap * 2, grp, px, z0 + u.h / 2, frontZ); handleOn(fullD, panelW, u.h, false, panelHinge); }
             else { var lo = doorPanel(panelW, botH, grp, px, z0 + gap + botH / 2, frontZ), hi = doorPanel(panelW, topH, grp, px, z0 + gap * 2 + botH + topH / 2, frontZ); handleOn(lo, panelW, botH, false, panelHinge); handleOn(hi, panelW, topH, false, panelHinge); }
           }
-        } else if (/BEL|BELFAST|BUTLER/.test((code + ' ' + (it.name || '')).toUpperCase())) {
-          /* a Belfast sink base: the sink's apron fills the top of the opening
-             and a pair of doors sits under it */
-          var ap = 250, topY2 = z0 + u.h;
-          var sw = Math.min(u.w - 24, 595);
-          var apron = new THREE.Mesh(new THREE.BoxGeometry(sw, ap, 60), matCeramic);
-          apron.position.set(0, topY2 - ap / 2 + 10, frontZ + 16);
-          apron.castShadow = shadows; grp.add(apron);
-          for (var fj = -1; fj <= 1; fj++) {
-            var fv = new THREE.Mesh(new THREE.BoxGeometry(sw * .26, ap - 40, 10), matCeramic);
-            fv.position.set(fj * sw * .3, topY2 - ap / 2 + 6, frontZ + 47);
-            grp.add(fv);
-          }
-          // the bowl, sunk below the worktop line
-          var bwl2 = new THREE.Mesh(new THREE.BoxGeometry(sw - 90, ap - 60, u.d - 140), matWell);
-          bwl2.position.set(0, topY2 + WTOP_T - (ap - 60) / 2 - 14, 10);
-          grp.add(bwl2);
-          var dh2 = u.h - ap - gap * 2;
-          if (dh2 > 120) {
-            var hwb = (u.w - gap * 3) / 2;
-            var lb = doorPanel(hwb, dh2, grp, -(hwb + gap) / 2, z0 + dh2 / 2 + gap, frontZ);
-            var rb2 = doorPanel(hwb, dh2, grp, (hwb + gap) / 2, z0 + dh2 / 2 + gap, frontZ);
-            handleOn(lb, hwb, dh2, false, 'right'); handleOn(rb2, hwb, dh2, false, 'left');
-          }
         } else if (shp === 'blind') {
           // the door sits at the open end, the blank fills the corner end
           var blankW = u.w - blindW;
@@ -3309,6 +3342,14 @@ body.rp-open .demo-bar{display:none!important}
     });
 
     /* ---- worktops over base runs ---- */
+    var worktopGroup = new THREE.Group();
+    scene.add(worktopGroup);
+    scene.userData.refreshWorktops = function () {
+    while (worktopGroup.children.length) {
+      var oldTop = worktopGroup.children[0];
+      worktopGroup.remove(oldTop);
+      oldTop.geometry.dispose();
+    }
     for (var wi = 0; wi < V.length - 1; wi++) {
       (function (wi) {
         var us = (plan.units || []).filter(function (u) {
@@ -3317,11 +3358,12 @@ body.rp-open .demo-bar{display:none!important}
           if (u.kind !== 'base' && u.kind !== 'corner') return false;
           if (shapeOf(it, u) !== 'box') return false;   // it carries its own shaped top
           return (it.cat !== 'cat-sink' && (it.code || '').indexOf('HOB') < 0);
-        }).sort(function (a, b) { return a.off - b.off; });
+        }).sort(function (a, b) { return (+a.wallGap || 0) - (+b.wallGap || 0) || a.off - b.off; });
         var runs = [], cur = null;
         us.forEach(function (u) {
-          if (cur && u.off <= cur.end + 60) cur.end = Math.max(cur.end, u.off + u.w);
-          else { if (cur) runs.push(cur); cur = { start: u.off, end: u.off + u.w }; }
+          var gap = +u.wallGap || 0;
+          if (cur && Math.abs(gap - cur.gap) < 1 && u.off <= cur.end + 60) cur.end = Math.max(cur.end, u.off + u.w);
+          else { if (cur) runs.push(cur); cur = { start: u.off, end: u.off + u.w, gap: gap }; }
         });
         if (cur) runs.push(cur);
         var d = eDir(V, wi), n = nIn(V, wi);
@@ -3329,18 +3371,20 @@ body.rp-open .demo-bar{display:none!important}
           var len = r.end - r.start + 40;
           var c = ptOn(V, wi, (r.start + r.end) / 2);
           var m = new THREE.Mesh(new THREE.BoxGeometry(len, WTOP_T, WTOP_D), matWtop);
-          m.position.set(c.x + n.nx * WTOP_D / 2, PLINTH + CARC + WTOP_T / 2, -(c.y + n.ny * WTOP_D / 2));
+          m.position.set(c.x + n.nx * (WTOP_D / 2 + r.gap), PLINTH + CARC + WTOP_T / 2, -(c.y + n.ny * (WTOP_D / 2 + r.gap)));
           m.rotation.y = Math.atan2(-d.uy, d.ux);
           m.castShadow = shadows; m.receiveShadow = shadows;
-          scene.add(m);
+          worktopGroup.add(m);
           /* upstand */
           var up = new THREE.Mesh(new THREE.BoxGeometry(len, 100, 20), matWtop);
-          up.position.set(c.x + n.nx * 12, PLINTH + CARC + WTOP_T + 50, -(c.y + n.ny * 12));
+          up.position.set(c.x + n.nx * (12 + r.gap), PLINTH + CARC + WTOP_T + 50, -(c.y + n.ny * (12 + r.gap)));
           up.rotation.y = m.rotation.y;
-          scene.add(up);
+          worktopGroup.add(up);
         });
       })(wi);
     }
+    };
+    scene.userData.refreshWorktops();
 
     /* ---- radiators, boilers, beams ---- */
     (plan.feats || []).forEach(function (f) {
@@ -3439,6 +3483,34 @@ body.rp-open .demo-bar{display:none!important}
         scene.add(pl);
       });
 
+      /* Door pivots and object picking. Empty-space dragging still orbits. */
+      var raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2(), unitDrag = null;
+      var unitGroups = {}, doors = [];
+      scene.traverse(function (object) { if (object.userData.unitId != null) unitGroups[object.userData.unitId] = object; if (object.userData.door && !object.userData.door.drawer) doors.push(object); });
+      doors.forEach(function (door) {
+        var parent = door.parent, meta = door.userData.door, hingeX = (meta.hinge === 'right' ? -1 : 1) * meta.width / 2;
+        var pivot = new THREE.Group(); pivot.position.copy(door.position); pivot.rotation.copy(door.rotation);
+        var offset = new THREE.Vector3(hingeX, 0, 0).applyEuler(door.rotation); pivot.position.add(offset);
+        parent.add(pivot); parent.remove(door); pivot.add(door); door.position.set(-hingeX, 0, 0); door.rotation.set(0, 0, 0);
+        pivot.userData.doorPivot = { closed: pivot.rotation.y, open: false, sign: hingeX > 0 ? 1 : -1 };
+        door.userData.pivot = pivot;
+      });
+      function cast(e) { var rect = renderer.domElement.getBoundingClientRect(); pointer.set((e.clientX - rect.left) / rect.width * 2 - 1, -(e.clientY - rect.top) / rect.height * 2 + 1); scene.updateMatrixWorld(true); raycaster.setFromCamera(pointer, camera); }
+      function pick(e) {
+        cast(e); var hits = raycaster.intersectObjects(scene.children, true);
+        for (var i = 0; i < hits.length; i++) { if (!hits[i].object.visible) continue; var object = hits[i].object, door = null, group = null;
+          while (object) { if (object.userData.pivot) door = object.userData.pivot; if (object.userData.unitId != null) { group = object; break; } object = object.parent; }
+          if (group) return { group: group, door: door, point: hits[i].point };
+          if (hits[i].object.visible && hits[i].distance > 0) return null;
+        } return null;
+      }
+      function toggleDoor(pivot) {
+        var data = pivot.userData.doorPivot; data.open = !data.open; data.animation = (data.animation || 0) + 1; var animation = data.animation;
+        var from = pivot.rotation.y, to = data.closed + (data.open ? data.sign * Math.PI / 2 : 0), start = performance.now();
+        function frame() { if (disposed || animation !== data.animation) return; var t = Math.min(1, (performance.now() - start) / 220); pivot.rotation.y = from + (to - from) * (1 - Math.pow(1 - t, 3)); render(); if (t < 1) requestAnimationFrame(frame); }
+        requestAnimationFrame(frame);
+      }
+      function floorPoint(e, height) { cast(e); return raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -height), new THREE.Vector3()); }
       /* orbit / pan / zoom */
       var drag = null, pts = {}, pinch = null;
       function down(e) {
@@ -3448,8 +3520,14 @@ body.rp-open .demo-bar{display:none!important}
           var a = pts[ids[0]], b2 = pts[ids[1]];
           pinch = { d: Math.hypot(a.x - b2.x, a.y - b2.y), dist: orbit.dist,
                     cx: (a.x + b2.x) / 2, cy: (a.y + b2.y) / 2, tx: target.x, tz: target.z };
-          drag = null;
+          drag = null; unitDrag = null;
           return;
+        }
+        if (e.button === 0 && !e.shiftKey) {
+          var hit = pick(e);
+          if (hit) { var unit = (plan.units || []).find(function (u) { return u.id === hit.group.userData.unitId; }), anchor = floorPoint(e, hit.point.y);
+            if (unit && anchor) { unitDrag = { id: e.pointerId, unit: unit, group: hit.group, door: hit.door, x: e.clientX, y: e.clientY, anchor: anchor, height: hit.point.y, off: unit.off, gap: +unit.wallGap || 0, moved: false }; renderer.domElement.setPointerCapture(e.pointerId); return; }
+          }
         }
         drag = { x: e.clientX, y: e.clientY, az: orbit.az, el: orbit.el, pan: e.button === 2 || e.shiftKey, tx: target.x, tz: target.z };
         renderer.domElement.setPointerCapture && renderer.domElement.setPointerCapture(e.pointerId);
@@ -3470,6 +3548,17 @@ body.rp-open .demo-bar{display:none!important}
           applyCam(); render();
           return;
         }
+        if (unitDrag && unitDrag.id === e.pointerId) {
+          if (Math.hypot(e.clientX - unitDrag.x, e.clientY - unitDrag.y) < 6 && !unitDrag.moved) return;
+          var point = floorPoint(e, unitDrag.height); if (!point) return; unitDrag.moved = true;
+          var unit = unitDrag.unit, axis = eDir(V, unit.edgeIdx), inward = nIn(V, unit.edgeIdx), dx = point.x - unitDrag.anchor.x, dy = -(point.z - unitDrag.anchor.z);
+          unit.off = Math.max(0, Math.min(eLen(V, unit.edgeIdx) - unit.w, unitDrag.off + dx * axis.ux + dy * axis.uy));
+          unit.wallGap = Math.max(0, Math.min(1500, unitDrag.gap + dx * inward.nx + dy * inward.ny));
+          (plan.units || []).forEach(function (other) { if (other.id !== unit.id && (!unit.cookingGroup || other.cookingGroup !== unit.cookingGroup)) return;
+            if (other.id !== unit.id) { other.off = unit.off + (unit.w - other.w) / 2; other.wallGap = unit.wallGap; }
+            var group = unitGroups[other.id], centre = ptOn(V, other.edgeIdx, other.off + other.w / 2); if (group) group.position.set(centre.x + inward.nx * (other.d / 2 + other.wallGap), 0, -(centre.y + inward.ny * (other.d / 2 + other.wallGap)));
+          }); scene.userData.refreshWorktops(); render(); return;
+        }
         if (!drag) return;
         var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         if (drag.pan) {
@@ -3483,6 +3572,7 @@ body.rp-open .demo-bar{display:none!important}
         applyCam(); render();
       }
       function up(e) {
+        if (unitDrag && unitDrag.id === e.pointerId) { var action = unitDrag; unitDrag = null; if (e.type !== 'pointercancel') { if (action.moved && opts.onUnitMove) opts.onUnitMove(action.unit.id); else if (!action.moved && action.door) toggleDoor(action.door); else if (!action.moved && opts.onUnitSelect) opts.onUnitSelect(action.unit.id); } }
         delete pts[e.pointerId];
         if (Object.keys(pts).length < 2) pinch = null;
         drag = null;
@@ -3498,13 +3588,13 @@ body.rp-open .demo-bar{display:none!important}
         applyCam(); render();
       }, { passive: false });
 
-      var tmpV = new THREE.Vector3();
+      var tmpV = new THREE.Vector3(), fullWalls = !!opts.fullWalls;
       function cullWalls() {
         for (var i = 0; i < walls.length; i++) {
           var w = walls[i];
           tmpV.copy(camera.position).sub(w.centre);
           // a wall whose outward face points at the camera would block the view
-          var vis = tmpV.dot(w.out) <= 0;
+          var vis = fullWalls || tmpV.dot(w.out) <= 0;
           w.mesh.visible = vis;
           if (w.trims) for (var t = 0; t < w.trims.length; t++) w.trims[t].visible = vis;
         }
@@ -3516,6 +3606,24 @@ body.rp-open .demo-bar{display:none!important}
 
       handle.setView = function (deg) { orbit.az = deg * Math.PI / 180; applyCam(); render(); };
       handle.setElev = function (v) { orbit.el = v; applyCam(); render(); };
+      handle.control = function (action, id) {
+        if (action === 'walls') fullWalls = !fullWalls;
+        else if (action === 'fit') { target.set(cx, 1100, -cy); orbit.az = Math.PI * .75; orbit.el = .42; orbit.dist = span * 1.45; }
+        else if (action === 'top') { target.set(cx, 0, -cy); orbit.el = Math.PI / 2 - .001; orbit.dist = span * 1.6; }
+        else if (action === 'eye') { target.set(cx, 1500, -cy); orbit.el = .01; orbit.dist = span * 1.1; }
+        else if (action === 'focus') {
+          var group = unitGroups[id]; if (!group) return;
+          target.copy(group.position); var unit = (plan.units || []).filter(function (u) { return u.id === id; })[0];
+          target.y = unit ? unit.h / 2 + (unit.kind === 'wall' ? 1400 : 150) : 700;
+          orbit.dist = Math.max(1600, unit ? Math.max(unit.w, unit.h) * 1.8 : 2000); orbit.el = .25;
+        } else {
+          var step = orbit.dist * .08, x = action === 'left' ? -step : action === 'right' ? step : 0;
+          var z = action === 'up' ? -step : action === 'down' ? step : 0;
+          target.x += -x * Math.sin(orbit.az) + z * Math.cos(orbit.az);
+          target.z += x * Math.cos(orbit.az) + z * Math.sin(orbit.az);
+        }
+        applyCam(); render();
+      };
       handle.snapshot = function () { render(); try { return renderer.domElement.toDataURL('image/png'); } catch (e) { return null; } };
       handle.resize = function () {
         var w = el.clientWidth || 800, h = el.clientHeight || 600;
@@ -3543,6 +3651,7 @@ body.rp-open .demo-bar{display:none!important}
     return {
       setView: function (d) { handle.setView(d); },
       setElev: function (v) { handle.setElev && handle.setElev(v); },
+      control: function (action, id) { if (handle.control) handle.control(action, id); },
       snapshot: function () { return handle.snapshot ? handle.snapshot() : null; },
       scene: function () { return handle.scene || null; },
       resize: function () { handle.resize(); },
@@ -3670,7 +3779,7 @@ body.rp-open .demo-bar{display:none!important}
   /* every base unit can hold a sink; a sink base starts with one already in it */
   function sinkable(it, kind) { return (kind === 'base' || kind === 'corner') && !!it && (+it.h || 720) <= 1000 && it.cat !== 'cat-drawer' && it.cat !== 'cat-appl'; }
   function isSinkBase(it) { return !!it && /SINK|BELFAST|BUTLER|BEL\d|\dBEL/i.test((it.name || '') + ' ' + (it.code || '')); }
-  function defaultSink(it) { return isSinkBase(it) ? (/BEL|BUTLER/i.test((it.code || '') + (it.name || '')) ? 'belfast' : 'single') : ''; }
+  function defaultSink(it) { return isSinkBase(it) ? (/BEL|BUTLER/i.test((it.code || '') + (it.name || '')) ? 'belfast' : /DOUBLE BOWL/i.test(it.name || '') ? 'double' : 'single') : ''; }
 
   /* ---- Which app category behaves how in plan ---- */
   function kindOf(item) {
@@ -3849,7 +3958,8 @@ body.rp-open .demo-bar{display:none!important}
   function catName(id) {
     var db = theDB();
     var c = (db && db.categories ? db.categories : []).find(function (x) { return x.id === id; });
-    return c ? c.name : id;
+    var fallback = { 'cat-appliance': 'Appliances', 'cat-hood': 'Extraction & Hoods', 'cat-sink': 'Sinks & Taps', 'cat-base': 'Base Cabinets', 'cat-custom': 'Custom Items' };
+    return c ? c.name : (fallback[id] || id);
   }
   function itemPrice(item) {
     try { if (typeof priceFrom === 'function') return priceFrom(item) || 0; } catch (e) { }
@@ -3866,7 +3976,7 @@ body.rp-open .demo-bar{display:none!important}
     return { z0: PLINTH, z1: PLINTH + u.h };
   }
   function corners(u) {
-    var i = u.edgeIdx, d = edgeDir(i), n = normIn(i), p0 = ptOn(i, u.off);
+    var i = u.edgeIdx, d = edgeDir(i), n = normIn(i), p0 = ptOn(i, u.off); p0 = { x: p0.x + n.nx * (+u.wallGap || 0), y: p0.y + n.ny * (+u.wallGap || 0) };
     var p1 = { x: p0.x + d.ux * u.w, y: p0.y + d.uy * u.w };
     return [p0, p1, { x: p1.x + n.nx * u.d, y: p1.y + n.ny * u.d }, { x: p0.x + n.nx * u.d, y: p0.y + n.ny * u.d }];
   }
@@ -3896,6 +4006,7 @@ body.rp-open .demo-bar{display:none!important}
   }
   function footprint(u) {
     var i = u.edgeIdx, d = edgeDir(i), n = normIn(i), p0 = ptOn(i, u.off);
+    p0 = { x: p0.x + n.nx * (+u.wallGap || 0), y: p0.y + n.ny * (+u.wallGap || 0) };
     var at = function (a, b) { return { x: p0.x + d.ux * a + n.nx * b, y: p0.y + d.uy * a + n.ny * b }; };
     var shp = unitShape(u);
     if (shp === 'box') return [at(0, 0), at(u.w, 0), at(u.w, u.d), at(0, u.d)];
@@ -4357,15 +4468,39 @@ body.rp-open .demo-bar{display:none!important}
     holder.style.cssText = 'position:absolute;inset:0;background:#e9e6e0';
     stageEl.appendChild(holder);
     var note = H('div', 'rp-dim');
-    note.style.left = '50%'; note.style.top = '22px';
+    note.style.left = '50%'; note.style.top = '112px';
     note.textContent = 'Loading realistic view…';
     ov.appendChild(note);
+    var controls = H('div', 'rp-view-controls');
+    var heightRow = H('label', 'rp-view-bar', '<span>Wall height</span>');
+    var heightSlider = H('input'); heightSlider.type = 'range'; heightSlider.min = '1800'; heightSlider.max = '4000'; heightSlider.step = '50'; heightSlider.value = S.ceiling;
+    heightSlider.setAttribute('aria-label', 'Wall height in millimetres');
+    var heightValue = H('strong', '', (S.ceiling / 1000).toFixed(2).replace(/0$/, '') + 'm');
+    heightSlider.addEventListener('input', function () { heightValue.textContent = (+heightSlider.value / 1000).toFixed(2).replace(/0$/, '') + 'm'; });
+    heightSlider.addEventListener('change', function () { S.ceiling = +heightSlider.value; S.path.forEach(function (wall) { wall.h = S.ceiling; }); push(); draw(); renderSide(); });
+    heightRow.appendChild(heightSlider); heightRow.appendChild(heightValue); controls.appendChild(heightRow);
+    var viewRow = H('div', 'rp-view-bar', '<span>View</span>');
+    [['fit', 'Fit'], ['top', 'Top'], ['eye', 'Eye level'], ['focus', 'Focus item'], ['walls', 'Full walls'], ['left', '\u2190'], ['right', '\u2192'], ['up', '\u2191'], ['down', '\u2193']].forEach(function (entry) {
+      if (entry[0] === 'left') viewRow.appendChild(H('span', '', 'Move'));
+      var button = H('button', entry[0] === 'walls' && S.fullWalls ? 'on' : '', entry[1]);
+      button.type = 'button'; button.title = entry[0] === 'walls' ? 'Show every wall' : entry[0] === 'focus' ? 'Focus selected cabinet' : entry[0] === 'left' || entry[0] === 'right' || entry[0] === 'up' || entry[0] === 'down' ? 'Move camera ' + entry[0] : entry[1];
+      button.addEventListener('click', function () {
+        if (!S.gl) return;
+        if (entry[0] === 'focus' && (!S.sel || S.sel.k !== 'unit')) { flash('Select a cabinet first to focus it'); return; }
+        if (entry[0] === 'walls') { S.fullWalls = !S.fullWalls; button.classList.toggle('on', S.fullWalls); }
+        S.gl.control(entry[0], S.sel && S.sel.id);
+      }); viewRow.appendChild(button);
+    });
+    controls.appendChild(viewRow); ov.appendChild(controls);
     var st = styleForGL();
     S.gl = Planner3D.mount(holder, planOut(), {
       items: st.items, cab: st.cab, door: st.door, worktopHex: st.worktopHex,
       openFronts: !!S.openFronts,
+      fullWalls: !!S.fullWalls,
       wallHex: S.wallHex || '#e6dcc4',
       wallImg: st.wallImg, wallImgTile: st.wallImgTile, wallImgEl: st.wallImgEl,
+      onUnitSelect: function (id) { if (!S) return; S.sel = { k: 'unit', id: id }; S.inspOpen = true; renderInsp(); },
+      onUnitMove: function (id) { if (!S) return; S.sel = { k: 'unit', id: id }; S.inspOpen = true; push(); renderInsp(); },
       onReady: function () {
         note.textContent = 'Drag to look around · right-drag or shift-drag to pan · scroll to zoom';
       },
@@ -4676,13 +4811,16 @@ body.rp-open .demo-bar{display:none!important}
   }
   function renderSide() {
     sideEl.innerHTML = '';
+    sideEl.classList.toggle('rp-room-compact', S.tab === 'room');
+    sideEl.classList.toggle('rp-detail-compact', S.tab === 'units' && !!S.detail);
+    sideEl.scrollTop = 0;
     if (S.tab === '3d') return side3D();
     if (S.tab === 'room') return sideRoom();
     return sideUnits();
   }
   function side3D() {
     sideEl.appendChild(H('div', 'rp-note', S.real
-      ? 'Drag to look around, right-drag or shift-drag to pan, scroll to zoom. Doors, colours and worktop follow your quote.'
+      ? 'Drag cabinets to move along the wall or away from it. Click a door to open or close. Drag empty space to orbit; right-drag to pan; scroll to zoom.'
       : 'A quick flat diagram of the room. Switch to realistic for materials and lighting.'));
     sideEl.appendChild(H('div', 'rp-sec', 'Quality'));
     [['Realistic', true], ['Diagram', false]].forEach(function (p) {
@@ -4942,13 +5080,15 @@ body.rp-open .demo-bar{display:none!important}
     });
     sideEl.appendChild(nr);
     sideEl.appendChild(H('div', 'rp-sec', 'Wall dimensions'));
+    var wallGrid = H('div', 'rp-wall-grid'); sideEl.appendChild(wallGrid);
     S.path.forEach(function (wall, i) {
-      var row = H('div', 'rp-f', '<label>Wall ' + (i + 1) + ' length (mm)</label>');
+      var wallCard = H('div', 'rp-wall-card', '<b>Wall ' + (i + 1) + ' <small>mm</small></b>'); wallGrid.appendChild(wallCard);
+      var row = H('div', 'rp-f', '<label>Length</label>');
       var input = H('input'); input.type = 'number'; input.min = 300; input.max = 30000; input.value = wall.len; input.setAttribute('aria-label', 'Wall ' + (i + 1) + ' length in mm');
       input.addEventListener('change', function () { var v = +input.value; if (!isFinite(v) || v < 300 || v > 30000) { input.value = wall.len; flash('Wall length must be between 300 and 30000 mm'); return; } var backup = S.path.map(wallCopy); if (setWallLen(i, v)) { var error = validateRoomPath(S.path); if (error) { S.path = backup; rebuild(); flash(error); draw(); return; } fit(); push(); draw(); } });
-      row.appendChild(input); sideEl.appendChild(row);
-      var hr = H('div', 'rp-f', '<label>Wall ' + (i + 1) + ' height (mm)</label>'); var height = H('input'); height.type = 'number'; height.min = 1900; height.max = 6000; height.value = wall.h || S.ceiling; height.setAttribute('aria-label', 'Wall ' + (i + 1) + ' height in mm');
-      height.addEventListener('change', function () { var v = +height.value; if (!isFinite(v) || v < 1900 || v > 6000) { height.value = wall.h || S.ceiling; flash('Wall height must be between 1900 and 6000 mm'); return; } wall.h = v; push(); draw(); }); hr.appendChild(height); sideEl.appendChild(hr);
+      row.appendChild(input); wallCard.appendChild(row);
+      var hr = H('div', 'rp-f', '<label>Height</label>'); var height = H('input'); height.type = 'number'; height.min = 1900; height.max = 6000; height.value = wall.h || S.ceiling; height.setAttribute('aria-label', 'Wall ' + (i + 1) + ' height in mm');
+      height.addEventListener('change', function () { var v = +height.value; if (!isFinite(v) || v < 1900 || v > 6000) { height.value = wall.h || S.ceiling; flash('Wall height must be between 1900 and 6000 mm'); return; } wall.h = v; push(); draw(); }); hr.appendChild(height); wallCard.appendChild(hr);
     });
     sideEl.appendChild(H('div', 'rp-sec', 'Room features'));
     var featureGrid = H('div', 'rp-room-grid rp-room-features');
@@ -5052,7 +5192,7 @@ body.rp-open .demo-bar{display:none!important}
     var fam = familyOf(it);
     if (fam.length > 1) {
       sideEl.appendChild(H('div', 'rp-sec', 'Width'));
-      var chips = H('div', 'rp-chips');
+      var chips = H('div', 'rp-chips rp-width-options');
       fam.forEach(function (f) {
         var c = H('button', 'rp-chip' + (f.id === it.id ? ' on' : ''), f.w + '');
         c.addEventListener('click', function () { S.detail.id = f.id; renderSide(); });
@@ -5084,7 +5224,7 @@ body.rp-open .demo-bar{display:none!important}
       sideEl.appendChild(hgc);
     }
     if (typeof needsHinges === 'function' && needsHinges(it)) {
-      sideEl.appendChild(H('div', 'rp-sec', 'Hinges')); var hg = H('div', 'rp-chips');
+      sideEl.appendChild(H('div', 'rp-sec', 'Hinges')); var hg = H('div', 'rp-chips rp-three-options');
       HINGE_OPTIONS.forEach(function (o) { var b = H('button', 'rp-chip', o[1]); if (S.detail.hinges === o[0]) b.classList.add('on'); b.addEventListener('click', function () { S.detail.hinges = o[0]; renderSide(); }); hg.appendChild(b); }); sideEl.appendChild(hg);
     }
     if (typeof needsLegs === 'function' && needsLegs(it)) {
@@ -5116,7 +5256,7 @@ body.rp-open .demo-bar{display:none!important}
     if (sinkable(it, kindOf(it))) {
       if (S.detail.sink === undefined) { S.detail.sink = defaultSink(it); S.detail.tap = S.detail.sink ? 'mixer' : ''; }
       sideEl.appendChild(H('div', 'rp-sec', 'Sink'));
-      var sc = H('div', 'rp-chips');
+      var sc = H('div', 'rp-chips rp-three-options');
       [{ k: '', n: 'No sink' }].concat(SINK_TYPES).forEach(function (t) {
         var c = H('button', 'rp-chip' + ((S.detail.sink || '') === t.k ? ' on' : ''), t.n);
         c.addEventListener('click', function () { S.detail.sink = t.k; if (t.k && !S.detail.tap) S.detail.tap = 'mixer'; if (!t.k) S.detail.tap = ''; renderSide(); });
@@ -5125,7 +5265,7 @@ body.rp-open .demo-bar{display:none!important}
       sideEl.appendChild(sc);
       if (S.detail.sink) {
         sideEl.appendChild(H('div', 'rp-sec', 'Tap'));
-        var tc = H('div', 'rp-chips');
+        var tc = H('div', 'rp-chips rp-three-options');
         [{ k: '', n: 'No tap' }].concat(TAP_TYPES).forEach(function (t) {
           var c = H('button', 'rp-chip' + ((S.detail.tap || '') === t.k ? ' on' : ''), t.n);
           c.addEventListener('click', function () { S.detail.tap = t.k; renderSide(); });
@@ -5192,10 +5332,12 @@ body.rp-open .demo-bar{display:none!important}
       sideEl.appendChild(aq);
     }
     sideEl.appendChild(H('div', 'rp-sec', 'Choose by type'));
+    var typeGrid = H('div', 'rp-type-grid'); sideEl.appendChild(typeGrid);
     [['worktop', 'Worktops'], ['appliance', 'Appliances'], ['sink', 'Sinks & taps']].forEach(function (f) {
-      var b = H('div', 'rp-row click', '<span>' + f[1] + '</span><span class="v">&rsaquo;</span>');
+      var b = H('button', 'rp-type-card', '<span>' + f[1] + '</span><span aria-hidden="true">&rsaquo;</span>');
+      b.type = 'button';
       b.addEventListener('click', function () { openFlow(f[0]); });
-      sideEl.appendChild(b);
+      typeGrid.appendChild(b);
     });
     sideEl.appendChild(H('div', 'rp-sec', 'All units'));
     var sr = H('div', 'rp-srch');
@@ -5212,8 +5354,9 @@ body.rp-open .demo-bar{display:none!important}
     all.addEventListener('click', function () { S.catFilter = null; renderSide(); });
     cs.appendChild(all);
     cats.forEach(function (c) {
-      var b = H('button', 'rp-cat' + (S.catFilter === c ? ' on' : ''), groupName(c));
-      if (groupName(c).length > 23) b.classList.add('rp-cat-wide');
+      var name = groupName(c), shortNames = { 'Larders & Appliance Housings': 'Tall & Larders', 'Panels & Plinths': 'Panels & Plinths', 'Appliance Housing': 'Housing', 'Extraction & Hoods': 'Extractors', 'Base Cabinets': 'Base Cabinets' };
+      var b = H('button', 'rp-cat' + (S.catFilter === c ? ' on' : ''), shortNames[name] || name);
+      b.type = 'button'; b.title = name; b.setAttribute('aria-label', name); b.setAttribute('aria-pressed', S.catFilter === c ? 'true' : 'false');
       b.addEventListener('click', function () { S.catFilter = S.catFilter === c ? null : c; renderSide(); });
       cs.appendChild(b);
     });
@@ -5309,25 +5452,22 @@ body.rp-open .demo-bar{display:none!important}
     if (key === 'appliance') {
       var ap = function (re) { return catalogue().filter(function (i) { return (i.cat === 'cat-appliance' || i.cat === 'cat-hood') && re.test((i.code + ' ' + i.name).toUpperCase()); }); };
       return {
-        title: 'Choose an appliance',
+        title: 'Kitchen appliances',
         cards: [
-          { t: 'Cooking', art: CA('appliance', 'cooking'), next: [
-            pickCard('Ovens', CA('appliance', 'ovens'), ap(/OVEN|APOV/)),
-            pickCard('Hobs', CA('appliance', 'hobs'), ap(/HOB/)),
-            pickCard('Extraction & hoods', CA('appliance', 'hoods'), ap(/HOOD|EXTRACT|HD/)),
-            pickCard('Microwaves', CA('appliance', 'ovens'), ap(/MICROWAVE|APMW/))
-          ] },
-          { t: 'Dishwashers', art: CA('appliance', 'dishwashers'), list: ap(/DISHWASH|APDW/) },
-          { t: 'Laundry', art: CA('appliance', 'laundry'), next: [
-            pickCard('Washing machines', CA('appliance', 'laundry'), ap(/WASHING MACHINE|APWM/)),
-            pickCard('Washer dryers', CA('appliance', 'laundry'), ap(/WASHER DRYER|APWD/))
-          ] },
-          { t: 'Refrigeration', art: CA('appliance', 'refrigeration'), next: [
-            pickCard('Fridge freezers', CA('appliance', 'refrigeration'), ap(/FRIDGE FREEZER|APFF/)),
-            pickCard('Under-counter fridges', CA('appliance', 'refrigeration'), ap(/APFR|UNDER-COUNTER FRIDGE/)),
-            pickCard('Under-counter freezers', CA('appliance', 'refrigeration'), ap(/APFZ|FREEZER 600/))
-          ] },
-          { t: 'Housings', art: CA('appliance', 'ovens'), list: catalogue().filter(function (i) { return i.cat === 'cat-appl'; }) }
+          pickCard('Hobs', CA('appliance', 'hobs'), ap(/HOB/)),
+          pickCard('Cookers', CA('appliance', 'ovens'), ap(/COOKER/).filter(function (i) { return i.cat === 'cat-appliance' && !/RANGE/i.test(i.name); })),
+          pickCard('Range cookers', CA('appliance', 'ovens'), ap(/RANGE COOKER/)),
+          pickCard('Extractors & hoods', CA('appliance', 'hoods'), ap(/HOOD|EXTRACT|HD/)),
+          pickCard('Integrated fridge freezers', CA('appliance', 'refrigeration'), ap(/FRIDGE.?FREEZER|APFF/).filter(function (i) { return /INTEGRATED|BUILT.?IN|APFF/i.test(i.code + ' ' + i.name) && !/AMERICAN|SIDE.?BY.?SIDE/i.test(i.name); })),
+          pickCard('American fridge freezers', CA('appliance', 'refrigeration'), ap(/AMERICAN|SIDE.?BY.?SIDE/)),
+          pickCard('Dishwashers', CA('appliance', 'dishwashers'), ap(/DISHWASH|APDW/)),
+          pickCard('Dryers & washer dryers', CA('appliance', 'laundry'), ap(/DRYER|TUMBLE|APWD/)),
+          pickCard('Washing machines', CA('appliance', 'laundry'), ap(/WASHING MACHINE|APWM/)),
+          pickCard('Ovens', CA('appliance', 'ovens'), ap(/OVEN|APOV/)),
+          pickCard('Microwaves', CA('appliance', 'ovens'), ap(/MICROWAVE|APMW/)),
+          pickCard('Under-counter fridges', CA('appliance', 'refrigeration'), ap(/APFR|UNDER.?COUNTER FRIDGE/)),
+          pickCard('Under-counter freezers', CA('appliance', 'refrigeration'), ap(/APFZ|FREEZER 600/)),
+          { t: 'Appliance housings', art: CA('appliance', 'ovens'), list: catalogue().filter(function (i) { return i.cat === 'cat-appl' || /FRIDGE FREEZER HOUSING/i.test(i.name); }) }
         ]
       };
     }
@@ -5447,8 +5587,7 @@ body.rp-open .demo-bar{display:none!important}
 
   function drawFixtureCards() {
     var grp = FIXTURES[S.fixKey]; if (!grp) return;
-    var w = H('div', 'rp-cards');
-    w.style.cssText = 'position:absolute;inset:0;overflow-y:auto;padding:22px;display:flex;flex-wrap:wrap;gap:18px;align-content:flex-start;justify-content:center';
+    var w = H('div', 'rp-cards rp-fixture-grid');
     var head = H('h2', null, esc(grp.title));
     head.style.cssText = 'width:100%;text-align:center;font-size:20px;font-weight:800;margin:4px 0 6px';
     w.appendChild(head);
@@ -5503,23 +5642,27 @@ body.rp-open .demo-bar{display:none!important}
         : S.feats.find(function (x) { return x.id === id; });
     if (!item) { S.sel = null; inspEl.classList.remove('on'); return; }
     inspEl.classList.add('on');
+    inspEl.classList.toggle('rp-opening-compact', k === 'opening');
+    inspEl.classList.toggle('rp-unit-compact', k === 'unit');
     inspEl.appendChild(H('div', 'rp-sec', 'Properties'));
     var cl = H('button', 'rp-row click', '<span>&times; Close</span>');
     cl.style.width = '100%'; cl.style.textAlign = 'left';
     cl.addEventListener('click', function () { S.sel = null; S.inspOpen = false; draw(); });
     inspEl.appendChild(cl);
 
+    var fieldContainer = inspEl;
     var num = function (label, val, min, max, set) {
       var f = H('div', 'rp-f', '<label>' + label + '</label>');
       var i = H('input'); i.type = 'number'; i.value = Math.round(val); i.min = min; i.max = max;
       i.addEventListener('change', function () { set(Math.max(min, Math.min(max, +i.value || val))); push(); draw(); });
-      f.appendChild(i); inspEl.appendChild(f);
+      f.appendChild(i); fieldContainer.appendChild(f);
     };
 
     if (k === 'unit') {
       var it = itemOf(item) || {};
       inspEl.appendChild(H('div', 'rp-row', '<span style="font-weight:700">' + esc(it.name || 'Unit') + '</span>'));
       inspEl.appendChild(H('div', 'rp-row', '<span>Code</span><span class="v">' + esc(it.code || '—') + '</span>'));
+      fieldContainer = H('div', 'rp-unit-fields'); inspEl.appendChild(fieldContainer);
       if (unitShape(item) === 'L' || unitShape(item) === 'diag') {
         num('Left hand width (mm)', item.w, 350, 3000, function (v) { item.w = v; item.leftW = v; if (item.rightD) item.rightD = Math.min(item.rightD, v - 100); });
         num('Right hand width (mm)', item.d, 350, 3000, function (v) { item.d = v; item.rightW = v; if (item.leftD) item.leftD = Math.min(item.leftD, v - 100); });
@@ -5541,10 +5684,11 @@ body.rp-open .demo-bar{display:none!important}
         if (i2 === item.edgeIdx) o.selected = true; sel2.appendChild(o);
       }
       sel2.addEventListener('change', function () { item.edgeIdx = +sel2.value; item.off = Math.min(item.off, Math.max(0, edgeLen(item.edgeIdx) - item.w)); push(); draw(); });
-      f2.appendChild(sel2); inspEl.appendChild(f2);
+      f2.appendChild(sel2); fieldContainer.appendChild(f2);
       if (shelvesOf(it, item) !== null) {
         num('Shelves inside', shelvesOf(it, item), 0, 8, function (v) { item.shelves = v; });
       }
+      fieldContainer = inspEl;
       if (isCornerUnit(it, item)) {
         inspEl.appendChild(H('div', 'rp-sec', 'Corner style'));
         var cc = H('div', 'rp-chips');
@@ -5574,7 +5718,7 @@ body.rp-open .demo-bar{display:none!important}
         inspEl.appendChild(hg2);
       }
       if (typeof needsHinges === 'function' && needsHinges(it)) {
-        inspEl.appendChild(H('div', 'rp-sec', 'Hinges')); var hc = H('div', 'rp-chips'); HINGE_OPTIONS.forEach(function (o) { var b = H('button', 'rp-chip' + (item.hinges === o[0] ? ' on' : ''), o[1]); b.addEventListener('click', function () { item.hinges = o[0]; push(); draw(); }); hc.appendChild(b); }); inspEl.appendChild(hc);
+        inspEl.appendChild(H('div', 'rp-sec', 'Hinges')); var hc = H('div', 'rp-chips rp-three-options'); HINGE_OPTIONS.forEach(function (o) { var b = H('button', 'rp-chip' + (item.hinges === o[0] ? ' on' : ''), o[1]); b.addEventListener('click', function () { item.hinges = o[0]; push(); draw(); }); hc.appendChild(b); }); inspEl.appendChild(hc);
       }
       if (typeof needsLegs === 'function' && needsLegs(it)) {
         inspEl.appendChild(H('div', 'rp-sec', 'Legs'));
@@ -5598,7 +5742,7 @@ body.rp-open .demo-bar{display:none!important}
       }
       if (sinkable(it, item.kind)) {
         inspEl.appendChild(H('div', 'rp-sec', 'Sink'));
-        var sk = H('div', 'rp-chips');
+        var sk = H('div', 'rp-chips rp-three-options');
         [{ k: '', n: 'No sink' }].concat(SINK_TYPES).forEach(function (t) {
           var c = H('button', 'rp-chip' + ((item.sink || '') === t.k ? ' on' : ''), t.n);
           c.addEventListener('click', function () { item.sink = t.k; if (t.k && !item.tap) item.tap = 'mixer'; if (!t.k) item.tap = ''; push(); draw(); });
@@ -5607,7 +5751,7 @@ body.rp-open .demo-bar{display:none!important}
         inspEl.appendChild(sk);
         if (item.sink) {
           inspEl.appendChild(H('div', 'rp-sec', 'Tap'));
-          var tp = H('div', 'rp-chips');
+          var tp = H('div', 'rp-chips rp-three-options');
           [{ k: '', n: 'No tap' }].concat(TAP_TYPES).forEach(function (t) {
             var c = H('button', 'rp-chip' + ((item.tap || '') === t.k ? ' on' : ''), t.n);
             c.addEventListener('click', function () { item.tap = t.k; push(); draw(); });
@@ -5639,11 +5783,13 @@ body.rp-open .demo-bar{display:none!important}
       inspEl.appendChild(dup);
     } else if (k === 'opening') {
       inspEl.appendChild(H('div', 'rp-row', '<span style="font-weight:700">' + esc(item.label) + '</span>'));
+      fieldContainer = H('div', 'rp-opening-fields'); inspEl.appendChild(fieldContainer);
       num('Width (mm)', item.w, 300, 4000, function (v) { item.w = v; });
       num('Height (mm)', item.h, 300, 2600, function (v) { item.h = v; });
       if (item.type === 'window') num('Height from floor (mm)', item.hf, 0, 2000, function (v) { item.hf = v; });
       var L = edgeLen(item.edgeIdx);
       num('Centre from wall start (mm)', item.t * L, item.w / 2, L - item.w / 2, function (v) { item.t = v / L; });
+      fieldContainer = inspEl;
       inspEl.appendChild(H('div', 'rp-row', '<span>On wall</span><span class="v">Wall ' + (item.edgeIdx + 1) + '</span>'));
       if (item.type === 'door') {
         inspEl.appendChild(H('div', 'rp-sec', 'Door opening'));
@@ -6926,6 +7072,32 @@ function addFillers(items) {
   });
   return items;
 }
+// Planner additions have no supplier price: the administrator sets their prices.
+const PLANNER_ITEM_SEED = [
+  ['APCOOK600', 'Freestanding Cooker 600', 'cat-appliance', 900, 600, 600, false, 'Cooker with hob and oven.'],
+  ['APRANGE900', 'Range Cooker 900', 'cat-appliance', 900, 900, 600, false, 'Wide freestanding range cooker with hob and ovens.'],
+  ['APAMFF900', 'American Fridge Freezer 900', 'cat-appliance', 1800, 900, 700, false, 'Freestanding side-by-side American fridge freezer.'],
+  ['APTD600', 'Tumble Dryer 600', 'cat-appliance', 850, 600, 600, false, 'Standalone tumble dryer.'],
+  ['BBAR800', 'Breakfast Bar 800', 'cat-custom', 720, 800, 400, false, 'Breakfast bar; dimensions can be adjusted in the planner.'],
+  ['KISLAND1500', 'Kitchen Island 1500', 'cat-base', 720, 1500, 900, true, 'Island cabinet; position away from the wall using the 3D planner.'],
+  ['SBASE600', 'Sink Base 600 · Single Bowl', 'cat-base', 720, 600, 570, true, 'Single-bowl sink base with full-height door.'],
+  ['SBASE800', 'Sink Base 800 · Double Bowl', 'cat-base', 720, 800, 570, true, 'Double-bowl sink base with full-height left and right doors.']
+];
+function addPlannerItems(items) {
+  const have = new Set(items.map(i => String(i.code).toUpperCase()));
+  let added = 0;
+  PLANNER_ITEM_SEED.forEach(r => {
+    if (have.has(r[0])) return;
+    let id = 'it-planner-' + r[0].toLowerCase();
+    while (items.some(i => i.id === id)) id += '-new';
+    items.push({ id, code: r[0], name: r[1], cat: r[2], room: 'Kitchen',
+      h: r[3], w: r[4], d: r[5], doors: r[6], desc: r[7],
+      plain: 0, wood: 0, struct: 0, finishes: 'All finishes', active: true,
+      notes: 'Price not supplied. Set the price in the admin catalogue before quoting.', image: null });
+    have.add(r[0]); added++;
+  });
+  return added;
+}
 const seedLegs = () => LEG_SEED.map((l, i) => ({ id: 'lg-' + (i + 1), name: l[0], code: l[1], rooms: l[2], desc: l[3], sort: i + 1, active: true }));
 const seedEdgings = () => EDGING_SEED.map((e, i) => ({ id: 'ec-' + (i + 1), name: e[0], code: e[1], hex: e[2], finish: 'solid', image: null, sort: i + 1, active: true }));
 const seedDrawerTypes = () => DRAWER_SEED.map((d, i) => ({ id: 'dt-' + (i + 1), name: d[0], desc: d[1], none: d[0] === 'No Drawers', sort: i + 1, active: true }));
@@ -7088,6 +7260,7 @@ function seed() {
   }
 
   addFillers(items);
+  addPlannerItems(items);
 
   // Full colour list from the PriceList workbook: [name, code, price group, swatch hex, finish, featured on website]
   const REF = [["White", "W980", 1, "#F4F3EE", "solid", 0], ["Sotne", "U727", 1, "#A5A196", "solid", 0], ["Light Grey", "U708", 1, "#C9CAC5", "solid", 1], ["White", "W1100", 1, "#F4F3EE", "solid", 0], ["White", "W1000", 1, "#F4F3EE", "solid", 0], ["Indigo", "U599", 1, "#2F3A4B", "solid", 0], ["Black", "U999", 1, "#1E1E1E", "solid", 0], ["White Woodgrain", "W1000 ST12", 3, "#F4F3EE", "wood", 0], ["White Gloss", "Senoplast", 3, "#F7F7F4", "gloss", 0], ["Cream Gloss", "Senoplast", 3, "#EFE6CF", "gloss", 0], ["Fir Green", "U600", 1, "#3D4A3C", "solid", 1], ["Mussel", "UlOO ST9", 1, "#D8D0C2", "solid", 0], ["Alabaster White", "Ul04 ST9", 1, "#ECE6D8", "solid", 1], ["Sand Beige", "Ul56 ST9", 1, "#D8C8AE", "solid", 0], ["Pebble Grey", "U201ST9", 1, "#C5C0B5", "solid", 0], ["Crema Beige", "U222 ST9", 1, "#E3D8C3", "solid", 0], ["Smoke Blue", "USO? ST9", 1, "#8E9CAA", "solid", 0], ["Denim Blue", "U540 ST9", 1, "#4F6378", "solid", 0], ["Indigo Blue", "U599 ST9", 1, "#2F3A4B", "solid", 1], ["Reed Green", "U604 ST9", 1, "#8A9270", "solid", 0], ["Fjord Green", "U636 ST9", 1, "#5E706A", "solid", 0], ["Sage Green", "U638 ST9", 1, "#97A185", "solid", 1], ["Fir Green", "U699 ST9", 1, "#3D4A3C", "solid", 0], ["Cashmere", "U702 ST9", 1, "#D6CAB6", "wood", 1], ["Light Grey", "U708 ST9", 1, "#C9CAC5", "solid", 0], ["Dakar", "U717ST9", 1, "#8E8A80", "solid", 0], ["Stone Grey", "U727 ST9", 1, "#A5A196", "solid", 1], ["Dust Grey", "U732 ST9", 1, "#9C9A93", "solid", 0], ["Taupe Grey", "U750 ST9", 1, "#8D8277", "solid", 0], ["Pearl Grey", "U763 ST9", 1, "#B8B7B1", "solid", 0], ["Silver Grey", "U765 ST9", 1, "#AEB0AE", "solid", 0], ["White Grey", "U775 ST9", 1, "#DCDCD6", "solid", 0], ["Soft Black", "U899 ST9", 1, "#262626", "solid", 1], ["Onyx Grey", "U960 ST9", 1, "#4B4C4C", "solid", 0], ["Carbon Grey", "U960 ST9", 1, "#3F4142", "solid", 0], ["Graphite Grey", "U961 ST2", 1, "#3B3D3E", "solid", 1], ["Diamond Grey", "U963 ST9", 1, "#55585A", "solid", 0], ["Black", "U999 ST2", 1, "#1E1E1E", "solid", 0], ["Premium White", "WlOOO ST9", 1, "#F3F2EC", "solid", 1], ["Alpine White", "WllOO ST9", 1, "#F5F5F1", "wood", 0], ["Porcelain White", "Wl200 ST9", 1, "#F1EFE8", "solid", 0], ["Platinum White", "W980 ST2", 1, "#EEEEEA", "solid", 0], ["Smooth White", "W980 SM", 1, "#F6F6F3", "solid", 0], ["Mussel Woodgrain", "UlOO ST12", 1, "#D8D0C2", "wood", 0], ["Alabaster Woodgrain", "Ul04 ST12", 1, "#C49A6C", "wood", 0], ["Pebble Grey Woodgrain", "U201 ST12", 1, "#C5C0B5", "wood", 0], ["Indigo Blue Woodgrain", "U599 ST12", 1, "#2F3A4B", "wood", 0], ["Reed Green Woodgrain", "U604 ST12", 2, "#8A9270", "wood", 0], ["Fir Green Woodgrain", "U699 ST12", 1, "#3D4A3C", "wood", 0], ["Cashmere Woodgrain", "U702 ST12", 1, "#D6CAB6", "wood", 0], ["Light Grey Woodgrain", "U708 ST12", 1, "#C9CAC5", "wood", 0], ["Dakar Grey Woodgrain", "U717 ST12", 1, "#8E8A80", "wood", 0], ["Stone Grey Woodgrain", "U727 ST12", 1, "#A5A196", "wood", 0], ["Taupe Grey Woodgrain", "U750 ST12", 1, "#8D8277", "wood", 0], ["White Grey Woodgrain", "U775 ST12", 1, "#DCDCD6", "wood", 0], ["Graphite Woodgrain", "ug57 ST12", 1, "#3B3D3E", "wood", 0], ["Black Woodgrain", "U999 ST12", 1, "#1E1E1E", "wood", 0], ["Antique Rose", "U325 ST9", 2, "#C9A9A0", "solid", 0], ["Aluminium", "F509 ST2", 2, "#B9BCBE", "solid", 0], ["Black Brown Sorano Oak", "Hll37 ST12", 2, "#3A2A22", "wood", 0], ["Natural Bardolino", "Hll45 STlO", 2, "#C59C6D", "wood", 0], ["Grey Bardolino", "Hll46 STlO", 2, "#9A938A", "wood", 0], ["Light Sorano Oak", "Hl334 ST9", 2, "#D2AE80", "wood", 0], ["Ellmau Beech", "Hl582 ST15", 2, "#D1A77A", "wood", 0], ["Shorewood", "H3090 ST22", 2, "#B99B7A", "wood", 0], ["Natural Davos Oak", "H3131 ST12", 2, "#C59C6D", "wood", 1], ["Truffle Brown Davos Oak", "H3133 ST12", 2, "#5E4636", "wood", 0], ["Natural Kendal Oak", "H3170 ST12", 2, "#C59C6D", "wood", 0], ["Oiled Kendal Oak", "H3171 ST12", 2, "#A57A4E", "wood", 0], ["Natural Hamilton Oak", "H3303 STlO", 2, "#C59C6D", "wood", 0], ["Grey Nebraska Oak", "H3332 STlO", 2, "#9A938A", "wood", 0], ["Natural Lancaster Oak", "H3368 ST9", 2, "#C59C6D", "wood", 0], ["Light Winchester Oak", "H3382 ST9", 2, "#D2AE80", "wood", 0], ["Natural Pacific Walnut", "H3700 STlO", 2, "#7A5438", "wood", 1], ["Tobacco Pacific Walnut", "H3702 STlO", 2, "#7A5236", "wood", 0], ["Tobacco Aida Walnut", "H3704 ST15", 2, "#7A5236", "wood", 0], ["Natural Carini Walnut", "H3710 ST12", 2, "#7A5438", "wood", 0], ["Natural Hickory", "H3730 STlO", 2, "#B08560", "wood", 0], ["Natural Dijon Walnut", "H3734 ST9", 2, "#7A5438", "wood", 0], ["Natural Mandie Maple", "H3840 ST9", 2, "#DDBF93", "wood", 0], ["Vicenza Oak", "H3157 ST12", 2, "#C8A57A", "wood", 0], ["Lincoln Walnut", "Hl714 ST19", 2, "#7A5A40", "wood", 0], ["White Fineline", "H3195 ST19", 2, "#E8E4DA", "wood", 0], ["Black", "U999 ST20", 2, "#1E1E1E", "solid", 0], ["Black Brown Thermo Oak", "H1199 ST11", 2, "#3A2A22", "wood", 0], ["Whitewood", "Hll22 ST22", 3, "#E7E2D8", "wood", 0], ["Graphitewood", "Hll23 ST22", 3, "#4E4B47", "wood", 0], ["White Halifax Oak", "Hll76 ST37", 3, "#EDE8DF", "wood", 0], ["Natural Halifax Oak", "Hll80 ST37", 3, "#C59C6D", "wood", 1], ["Tobacco Halifax Oak", "Hll81 ST37", 3, "#7A5236", "wood", 1], ["Navarra Ash", "Hl250 ST36", 3, "#C7B393", "wood", 0], ["Vintage Santa Fe", "Hl330 STlO", 3, "#A98C6D", "wood", 0], ["Grey Santa Fe", "Hl331 STlO", 3, "#9A938A", "wood", 0], ["Sand Grey Glazed Halifax Oak", "Hl336 ST37", 3, "#CDB594", "wood", 0], ["Sand Orleans", "Hl377 ST36", 3, "#B5B0A6", "solid", 0], ["Graphite Denver Oak", "Hl387 STlO", 3, "#4A4744", "wood", 0], ["Cascina Pine", "Hl401 ST22", 3, "#D6C3A0", "wood", 0], ["Pasadena Pine", "Hl486 ST36", 3, "#C9B18E", "wood", 0], ["Pewter Halifax Oak", "H3176 ST37", 3, "#8D8A84", "wood", 0], ["Black Glazed Halifax Oak", "H3178 ST37", 3, "#C49A6C", "wood", 0], ["Anthracite Fineline Metallic", "H3190 ST19", 3, "#4A4B4C", "stone", 0], ["Sand Gladstone Oak", "H3309 ST28", 3, "#CDB594", "wood", 0], ["Tobacco Gladstone Oak", "H3325 ST28", 3, "#7A5236", "wood", 0], ["Grey Beige Gladstone Oak", "H3326 ST28", 3, "#B6A893", "wood", 0], ["White Gladstone Oak", "H3335 ST28", 3, "#EDE8DF", "wood", 0], ["White Mountain Larch", "H3403 ST38", 3, "#EDE8DF", "wood", 0], ["Anthracite Mountain Larch", "H3406 ST38", 3, "#4A4A48", "wood", 0], ["Shadow Black", "U998 ST38", 3, "#1F1F1F", "solid", 0], ["Tobacco Pacific", "H3602 STlO", 3, "#B5B0A6", "solid", 0], ["Brown Sacramento Oak", "Hll42 ST36", 3, "#6E4E38", "wood", 0], ["Natural Nebraska Oak", "H3331 STlO", 3, "#C59C6D", "wood", 0], ["Sepia Gladstone Oak", "H3342 ST28", 3, "#6B5442", "wood", 0], ["Ash Veneer", "ASH VENEER", 3, "#D7C4A4", "wood", 0], ["Oak Veneer", "OAK VENEER", 3, "#C49A6C", "wood", 0], ["Premium White", "WlOOO ST38", 3, "#F3F2EC", "solid", 0], ["Brown Cuneo Oak", "H3317 ST28", 3, "#6E4E38", "wood", 0], ["White Linen", "F422 STlO", 3, "#E9E5DC", "stone", 0], ["Marone Casella Oak", "Hl369 ST40", 3, "#6A4632", "wood", 0], ["Anthracite Metal Rock", "Fl21 ST87", 3, "#4A4B4C", "stone", 0], ["Light Grey Chicago Concrete", "Fl86 ST9", 3, "#B3B0A8", "stone", 1], ["Beige Textile", "F416 STlO", 3, "#CFC3AE", "stone", 0], ["Grey Textile", "F417 STlO", 3, "#9D9A94", "stone", 0], ["Anthracite Linen", "F433 STlO", 3, "#4A4B4C", "stone", 0], ["Anthracite Metal Fabric", "F461 STlO", 3, "#4A4B4C", "stone", 0], ["Metal lnox", "FSOO ST20", 3, "#A8A6A0", "stone", 0], ["Silver Grey Metal Slate", "F628 ST16", 3, "#9FA1A1", "stone", 0], ["Black Gold Metal Slate", "F629 ST16", 3, "#2A2622", "stone", 0], ["White Chromix", "F637 ST16", 3, "#E4E4E2", "stone", 0], ["White Levanto Marble", "F812 ST9", 3, "#ECEAE5", "stone", 1], ["Ocen Blue", "U565", 3, "#2D4E63", "solid", 0], ["Serica Sage Green", "—", 3, "#8F9A80", "solid", 0], ["Serica Black", "—", 3, "#222222", "solid", 0], ["Bronze", "F528", 3, "#8C6A48", "solid", 0], ["Light Lakeland Accacia", "H1277", 2, "#D0A874", "wood", 0]];
@@ -7410,11 +7583,11 @@ const plOrder = g => { const i = (window.PL_GROUPS || []).findIndex(x => x[0] ==
 /* A saved database predates the supplier price list, so add anything it is
    missing without touching the customers, quotes and prices already there. */
 function topUpCatalogue() {
-  if (!window.PRICELIST || !DB.items) return;
+  if (!DB.items) return;
   const by = {}; DB.items.forEach(i => by[String(i.code).toLowerCase()] = i);
   const sync = DB.settings.plv !== PL_VERSION;      // bring a saved catalogue up to this price list, once
   let n = DB.items.length, added = 0, fixed = 0;
-  window.PRICELIST.forEach(r => {
+  (window.PRICELIST || []).forEach(r => {
     const code = String(r[0]).toLowerCase();
     let it = by[code];
     if (!it) {
@@ -7425,6 +7598,7 @@ function topUpCatalogue() {
     Object.assign(it, plFields(r));
   });
   addFillers(DB.items);
+  added += addPlannerItems(DB.items);
   if (sync) { DB.settings.plv = PL_VERSION; }
   if (added || fixed) save();
 }
