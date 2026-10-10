@@ -1037,6 +1037,9 @@ button.kpi:hover{border-color:var(--olive);box-shadow:var(--shadow-lg)}
 .rp-zoom input{width:110px;accent-color:var(--accent,#7a6a52)}
 
 /* unit detail card */
+.rp-gap-dim{flex-direction:column;gap:1px;padding:3px 7px;border-color:#edc29e;background:#fffaf5;color:#b95d23;font-size:11px}
+.rp-gap-dim small{font:600 8px var(--font);color:#a56337;letter-spacing:.02em}
+.rp-gap-dim b{font-size:11px}
 .rp-room-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:7px 10px;border-bottom:1px solid var(--line)}
 .rp-room-grid .rp-row{min-width:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:600 11px/1.4 var(--font);text-align:left}
 .rp-room-grid .rp-row>span:first-child{color:var(--muted)}
@@ -1339,7 +1342,7 @@ body.rp-open .demo-bar{display:none!important}
       topbox: /top ?box/i.test(nm) || (kind === 'wall' && (o.h || 720) <= 400),
       oneDoor: o.doorLayout === 'full',
       robe: cat === 'cat-robe' || /robe/i.test(nm),
-      pair: (cat === 'cat-robe' || /robe/i.test(nm)) && (o.w || 0) >= 800,
+      pair: (cat === 'cat-robe' || /robe/i.test(nm)) && (o.w || 0) > 600,
       dblHang: o.hanging === 'double',
       wine: /wine rack/i.test(nm),
       pantry: /pantry/i.test(nm)
@@ -1575,7 +1578,7 @@ body.rp-open .demo-bar{display:none!important}
       var dh = Math.min(170, h * 0.24), gd = 6, top = y1 - dh;
       out.push(poly([P(0, y1, d), P(w, y1, d), P(w, top, d), P(0, top, d)], doorFace, doorEdge, 1.1));
       out.push(line(P(w * 0.3, top + dh * 0.55, d), P(w * 0.7, top + dh * 0.55, d), shade(base, -0.62), 3));
-      if (w >= 800) { leaf(0, w / 2, OPEN, 1, y0, top - gd); leaf(w, w / 2, 18 * Math.PI / 180, -1, y0, top - gd); }
+      if (w > 600) { leaf(0, w / 2, OPEN, 1, y0, top - gd); leaf(w, w / 2, 18 * Math.PI / 180, -1, y0, top - gd); }
       else leaf(0, w, OPEN, 1, y0, top - gd);
     } else if (MK.robeDraw) {
       // a robe with drawers: doors above, drawer fronts across the bottom
@@ -1585,7 +1588,7 @@ body.rp-open .demo-bar{display:none!important}
         out.push(poly([P(0, rfy + rfh, d), P(w, rfy + rfh, d), P(w, rfy, d), P(0, rfy, d)], doorFace, doorEdge, 1.1));
         out.push(line(P(w * 0.3, rfy + rfh * 0.6, d), P(w * 0.7, rfy + rfh * 0.6, d), shade(base, -0.62), 3));
       }
-      if (w >= 800) { leaf(0, w / 2, OPEN, 1, split, y1); leaf(w, w / 2, 18 * Math.PI / 180, -1, split, y1); }
+      if (w > 600) { leaf(0, w / 2, OPEN, 1, split, y1); leaf(w, w / 2, 18 * Math.PI / 180, -1, split, y1); }
       else leaf(0, w, OPEN, 1, split, y1);
     } else if (drawers || MK.pack) {
       // drawer fronts sit flush across the opening
@@ -1595,6 +1598,14 @@ body.rp-open .demo-bar{display:none!important}
         var fy = y0 + gapd + k * (fh + gapd);
         out.push(poly([P(0, fy + fh, d), P(w, fy + fh, d), P(w, fy, d), P(0, fy, d)], doorFace, doorEdge, 1.1));
         out.push(line(P(w * 0.3, fy + fh * 0.62, d), P(w * 0.7, fy + fh * 0.62, d), shade(base, -0.62), 3));
+      }
+    } else if (kind === 'tall' && w > (MK.robe ? 600 : 500)) {
+      var cols = Math.max(2, Math.ceil(w / 600)), doorW = w / cols, mid = y0 + h * 0.63;
+      twoWide = true;
+      for (var col = 0; col < cols; col++) {
+        var right = col % 2 === 1, anchor = right ? (col + 1) * doorW : col * doorW, direction = right ? -1 : 1, angle = right ? 18 * Math.PI / 180 : OPEN;
+        if (MK.oneDoor || MK.pair) leaf(anchor, doorW, angle, direction, y0, y1);
+        else { leaf(anchor, doorW, angle, direction, mid + 6, y1); leaf(anchor, doorW, angle, direction, y0, mid - 6); }
       }
     } else if (MK.pantry && w >= 700) {
       // a pantry larder opens as a pair of full-height doors
@@ -1614,11 +1625,10 @@ body.rp-open .demo-bar{display:none!important}
       var mid = y0 + h * 0.63;
       leaf(0, w, OPEN, 1, mid + 6, y1);
       leaf(0, w, OPEN, 1, y0, mid - 6);
-    } else if (o.doors === 2 || w >= 800) {
+    } else if (o.doors === 2 || w > 600) {
       twoWide = true;
-      var half = w / 2;
-      leaf(0, half, OPEN, 1, y0, y1);                    // near leaf wide open
-      leaf(w, half, 18 * Math.PI / 180, -1, y0, y1);     // far leaf just ajar
+      var count = Math.max(2, Math.ceil(w / 600)), half = w / count;
+      for (var i = 0; i < count; i++) leaf(i % 2 ? (i + 1) * half : i * half, half, i % 2 ? 18 * Math.PI / 180 : OPEN, i % 2 ? -1 : 1, y0, y1);
     } else {
       leaf(0, w, OPEN, 1, y0, y1);
     }
@@ -1637,7 +1647,7 @@ body.rp-open .demo-bar{display:none!important}
       [0, y1].forEach(function (y) { [0, d].forEach(function (z) { pts.push(P(x, y, z)); }); });
     });
     var tipC = Math.cos(OPEN), tipS = Math.sin(OPEN);
-    var tipW = (!drawers && !MK.pack && kind !== 'tall' && (o.doors === 2 || w >= 800)) ? w / 2 : w;
+    var tipW = (!drawers && !MK.pack && kind !== 'tall' && (o.doors === 2 || w > 600)) ? w / 2 : w;
     pts.push(P(-tipW * tipC, y1, d + tipW * tipS), P(-tipW * tipC, y0, d + tipW * tipS));
     pts.push(P(0, 0, 0), P(w, 0, d), P(0, 0, d), P(w, 0, 0));
     var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
@@ -2959,6 +2969,7 @@ body.rp-open .demo-bar{display:none!important}
          cabinet, but on site it always sits in a base unit. Build that unit
          under it so the run reads properly instead of the sink floating. */
       function hostCabinet() {
+        if (u.cookingGroup) return;
         var hw = u.w, hd = Math.max(u.d, WTOP_D - 30), fz = hd / 2 + 10, gp = 4;
         var body = new THREE.Mesh(new THREE.BoxGeometry(hw, CARC, hd), matCarc);
         body.position.set(0, PLINTH + CARC / 2, 0);
@@ -3162,25 +3173,14 @@ body.rp-open .demo-bar{display:none!important}
             var dg = doorPanel(u.w - gap * 2, dh, grp, 0, z0 + gap + dh / 2 + r2 * (dh + gap), frontZ);
             handleOn(dg, u.w - gap * 2, dh, true, hinge);
           }
-        } else if (kind === 'tall' && cat === 'cat-robe' && u.w >= 800) {
-          // a double robe carries a pair of full-height doors
-          var rhw = (u.w - gap * 3) / 2;
-          var rl = doorPanel(rhw, u.h - gap * 2, grp, -(rhw + gap) / 2, z0 + u.h / 2, frontZ);
-          var rr2 = doorPanel(rhw, u.h - gap * 2, grp, (rhw + gap) / 2, z0 + u.h / 2, frontZ);
-          handleOn(rl, rhw, u.h, false, 'right'); handleOn(rr2, rhw, u.h, false, 'left');
         } else if (kind === 'tall') {
-          if (u.doorLayout === 'full') {
-            // one door the full height of the cabinet
-            var fullD = doorPanel(u.w - gap * 2, u.h - gap * 2, grp, 0, z0 + u.h / 2, frontZ);
-            handleOn(fullD, u.w, u.h, false, hinge);
-          } else {
-            // larder doors split top and bottom, both on the same hinge
-            var sizes = (typeof tallDoors === 'function') ? tallDoors(u.h, 'split') : [u.h * 0.63, u.h * 0.37];
-            var topH = sizes[0] || u.h * 0.63, botH = sizes[1] || u.h * 0.37, scale = (u.h - gap * 3) / (topH + botH);
-            topH *= scale; botH *= scale;
-            var lo = doorPanel(u.w - gap * 2, botH, grp, 0, z0 + gap + botH / 2, frontZ);
-            var hi = doorPanel(u.w - gap * 2, topH, grp, 0, z0 + gap * 2 + botH + topH / 2, frontZ);
-            handleOn(lo, u.w, botH, false, hinge); handleOn(hi, u.w, topH, false, hinge);
+          var columns = Math.max(u.w > (cat === 'cat-robe' ? 600 : 500) ? 2 : 1, Math.ceil(u.w / 600)), panelW = (u.w - gap * (columns + 1)) / columns;
+          var sizes = (typeof tallDoors === 'function') ? tallDoors(u.h, 'split') : [u.h * .63, u.h * .37];
+          var topH = sizes[0], botH = sizes[1], scale = (u.h - gap * 3) / (topH + botH); topH *= scale; botH *= scale;
+          for (var column = 0; column < columns; column++) {
+            var px = -u.w / 2 + gap + panelW / 2 + column * (panelW + gap), panelHinge = columns > 1 ? (column % 2 ? 'left' : 'right') : hinge;
+            if (u.doorLayout === 'full' || cat === 'cat-robe') { var fullD = doorPanel(panelW, u.h - gap * 2, grp, px, z0 + u.h / 2, frontZ); handleOn(fullD, panelW, u.h, false, panelHinge); }
+            else { var lo = doorPanel(panelW, botH, grp, px, z0 + gap + botH / 2, frontZ), hi = doorPanel(panelW, topH, grp, px, z0 + gap * 2 + botH + topH / 2, frontZ); handleOn(lo, panelW, botH, false, panelHinge); handleOn(hi, panelW, topH, false, panelHinge); }
           }
         } else if (/BEL|BELFAST|BUTLER/.test((code + ' ' + (it.name || '')).toUpperCase())) {
           /* a Belfast sink base: the sink's apron fills the top of the opening
@@ -3214,7 +3214,7 @@ body.rp-open .demo-bar{display:none!important}
           var blank = new THREE.Mesh(new THREE.BoxGeometry(blankW - gap * 2, u.h - gap * 2, 18), matDoor);
           blank.position.set(side * blindW / 2, z0 + u.h / 2, frontZ);
           blank.castShadow = shadows; grp.add(blank);
-        } else if (u.w >= 800) {
+        } else if (u.w > 600) {
           var hw = (u.w - gap * 3) / 2;
           var l = doorPanel(hw, u.h - gap * 2, grp, -(hw + gap) / 2, z0 + u.h / 2, frontZ);
           var rr = doorPanel(hw, u.h - gap * 2, grp, (hw + gap) / 2, z0 + u.h / 2, frontZ);
@@ -3857,6 +3857,7 @@ body.rp-open .demo-bar{display:none!important}
   function itemOf(u) { var db = theDB(); var d = db && db.items; return d ? d.find(function (i) { return i.id === u.itemId; }) : null; }
   function unitZ(u) {
     var k = u.kind;
+    if (/HOB/i.test((itemOf(u) || {}).code || '')) return { z0: PLINTH + 720 + WTOP_T, z1: PLINTH + 720 + WTOP_T + u.h };
     if (k === 'wall') return { z0: S.wallTop - u.h, z1: S.wallTop };
     if (k === 'tall') return { z0: PLINTH, z1: PLINTH + u.h };
     return { z0: PLINTH, z1: PLINTH + u.h };
@@ -4193,6 +4194,17 @@ body.rp-open .demo-bar{display:none!important}
     svg.appendChild(E('rect', { x: g.mx - w / 2, y: g.my - dd / 2, width: w, height: dd, fill: '#1e9bd7', 'fill-opacity': '.5', stroke: '#1680b4', 'stroke-width': 1.6, 'pointer-events': 'none', rx: 2 }));
   }
 
+  function unitSpacing(u) {
+    var left = 0, right = edgeLen(u.edgeIdx), z = unitZ(u);
+    S.units.forEach(function (other) {
+      if (other.id === u.id || other.edgeIdx !== u.edgeIdx) return;
+      var oz = unitZ(other);
+      if (z.z0 >= oz.z1 || oz.z0 >= z.z1) return;
+      if (other.off + other.w <= u.off) left = Math.max(left, other.off + other.w);
+      if (other.off >= u.off + u.w) right = Math.min(right, other.off);
+    });
+    return [[left, u.off], [u.off + u.w, right]];
+  }
   function drawDims() {
     for (var i = 0; i < nEdges(); i++) {
       (function (i) {
@@ -4226,13 +4238,20 @@ body.rp-open .demo-bar{display:none!important}
     if (S.sel && S.sel.k === 'unit') {
       var u = S.units.find(function (x) { return x.id === S.sel.id; });
       if (u) {
-        var L2 = edgeLen(u.edgeIdx), n2 = normIn(u.edgeIdx);
-        [[0, u.off], [u.off + u.w, L2]].forEach(function (pair) {
-          if (pair[1] - pair[0] < 30) return;
+        var n2 = normIn(u.edgeIdx), dir = edgeDir(u.edgeIdx), inset = px(u.d / 2);
+        unitSpacing(u).forEach(function (pair, index) {
+          if (pair[1] - pair[0] < 1) return;
+          var a = P(ptOn(u.edgeIdx, pair[0])), b = P(ptOn(u.edgeIdx, pair[1]));
+          a.x += n2.nx * inset; a.y += n2.ny * inset; b.x += n2.nx * inset; b.y += n2.ny * inset;
+          var guide = E('g', { 'pointer-events': 'none' });
+          guide.appendChild(E('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#d97732', 'stroke-width': 1.5, 'stroke-dasharray': '5 4' }));
+          [a, b].forEach(function (p) { guide.appendChild(E('line', { x1: p.x - n2.nx * 5, y1: p.y - n2.ny * 5, x2: p.x + n2.nx * 5, y2: p.y + n2.ny * 5, stroke: '#d97732', 'stroke-width': 1.5 })); });
+          svg.appendChild(guide);
           var mid = ptOn(u.edgeIdx, (pair[0] + pair[1]) / 2), mp = P(mid);
-          var box = H('div', 'rp-dim auto');
-          box.style.left = (mp.x + n2.nx * px(330)) + 'px'; box.style.top = (mp.y + n2.ny * px(330)) + 'px';
-          box.textContent = Math.round(pair[1] - pair[0]) + 'mm';
+          var box = H('div', 'rp-dim rp-gap-dim');
+          box.style.left = (mp.x + n2.nx * inset) + 'px'; box.style.top = (mp.y + n2.ny * inset) + 'px';
+          var side = Math.abs(dir.ux) >= Math.abs(dir.uy) ? ((index === 0) === (dir.ux > 0) ? 'Left' : 'Right') : ((index === 0) === (dir.uy > 0) ? 'Top' : 'Bottom');
+          box.innerHTML = '<small>' + side + ' gap</small><b>' + Math.round(pair[1] - pair[0]) + ' mm</b>';
           ov.appendChild(box);
         });
       }
@@ -4449,6 +4468,15 @@ body.rp-open .demo-bar{display:none!important}
     off = Math.max(0, Math.min(L - p.w, off));
     S.ghost = { snapped: true, edgeIdx: n.i, off: off, mx: mx, my: my };
   }
+  function hobAssemblyItems(it) {
+    var match = /\b(\d{3,4})\b/.exec(it.name || ''), width = match ? +match[1] : +it.w;
+    var items = catalogue();
+    return { width: width, base: items.find(function (x) { return x.cat === 'cat-base' && +x.w === width && !/SINK|BELFAST|CORNER/i.test(x.name); }), hood: items.find(function (x) { return x.cat === 'cat-hood' && +x.w === width && !/ISLAND|DOWNDRAFT/i.test(x.name); }) };
+  }
+  function moveCookingGroup(u) {
+    if (!u.cookingGroup) return;
+    S.units.forEach(function (x) { if (x.id !== u.id && x.cookingGroup === u.cookingGroup) { x.edgeIdx = u.edgeIdx; x.off = u.off + (u.w - x.w) / 2; } });
+  }
   function placePending() {
     var p = S.pending, g = S.ghost; if (!p || !g) return;
     if (p.mode === 'opening') {
@@ -4461,7 +4489,22 @@ body.rp-open .demo-bar{display:none!important}
       S.sel = { k: 'opening', id: S.nid - 1 }; S.inspOpen = false;
     } else if (p.mode === 'unit') {
       if (!g.snapped) { flash('Units are placed against a wall'); return; }
+      var hobItem = itemOf(p), assembly = null;
+      if (hobItem && /HOB/i.test(hobItem.code || '')) {
+        assembly = hobAssemblyItems(hobItem);
+        if (!assembly.base || !assembly.hood) { flash('This hob needs a ' + assembly.width + 'mm base and extractor. Add the matching sizes to the catalogue first.'); return; }
+        var assemblyOff = Math.max(0, Math.min(edgeLen(g.edgeIdx) - assembly.width, g.off - (assembly.width - p.w) / 2));
+        if (assembly.width > edgeLen(g.edgeIdx)) { flash('This wall is too short for the hob base'); return; }
+        var group = 'cooking-' + S.nid;
+        [assembly.base, assembly.hood].forEach(function (it) {
+          var existing = S.units.find(function (u) { return u.itemId === it.id && u.edgeIdx === g.edgeIdx && Math.abs(u.off - assemblyOff) < 1; });
+          if (existing) { existing.cookingGroup = group; return; }
+          S.units.push({ id: S.nid++, itemId: it.id, kind: kindOf(it), edgeIdx: g.edgeIdx, off: assemblyOff, w: assembly.width, d: +it.d, h: +it.h, hinge: 'left', doorLayout: 'split', legs: typeof legOptions === 'function' ? ((legOptions(it)[0] || {}).id || '') : '', cookingGroup: group });
+        });
+        g.off = assemblyOff + (assembly.width - p.w) / 2;
+      }
       S.units.push({ id: S.nid++, itemId: p.itemId, kind: p.kind, edgeIdx: g.edgeIdx, off: g.off, w: p.w, d: p.d, h: p.h, hinge: p.hinge || 'left', blank: p.blank == null ? null : p.blank, sink: p.sink || '', tap: p.tap || '', doorLayout: p.doorLayout || 'split', hanging: p.hanging || 'single', legs: p.legs || '', hinges: p.hinges || '', qty: 1 });
+      if (assembly) { S.units[S.units.length - 1].cookingGroup = group; flash('Matching ' + assembly.width + 'mm base and extractor added with the hob'); }
       S.sel = { k: 'unit', id: S.nid - 1 }; S.inspOpen = false;
     } else {
       var z0 = p.z0 != null ? p.z0 : (p.type === 'beam' || p.type === 'cencase' ? Math.max(0, S.ceiling - p.h) : 0);
@@ -4525,6 +4568,7 @@ body.rp-open .demo-bar{display:none!important}
       S.units.filter(function (x) { return x.edgeIdx === i2 && x.id !== u.id; }).forEach(function (x) { cands.push(x.off + x.w, x.off - u.w); });
       cands.forEach(function (c) { if (Math.abs(off - c) < tol) off = c; });
       u.edgeIdx = i2; u.off = Math.max(0, Math.min(Math.max(0, L2 - u.w), off));
+      moveCookingGroup(u);
       redrawOnly();
     } else if (m.k === 'feat') {
       var f = S.feats.find(function (x) { return x.id === m.id; }); if (!f) return;
@@ -5017,7 +5061,7 @@ body.rp-open .demo-bar{display:none!important}
       if (S.detail.doorLayout === undefined) S.detail.doorLayout = 'split';
       sideEl.appendChild(H('div', 'rp-sec', 'Door layout'));
       var dlc = H('div', 'rp-chips');
-      [['split', 'Two doors'], ['full', 'One full door']].forEach(function (p) {
+      [['split', 'Top/bottom split'], ['full', 'Full-height doors']].forEach(function (p) {
         var sz = tallDoors(it.h, p[0]).join(' + ');
         var c = H('button', 'rp-chip wide' + ((S.detail.doorLayout || 'split') === p[0] ? ' on' : ''), p[1] + ' · ' + sz);
         c.addEventListener('click', function () { S.detail.doorLayout = p[0]; renderSide(); });
@@ -5502,7 +5546,7 @@ body.rp-open .demo-bar{display:none!important}
       if (typeof needsDoorLayout === 'function' && needsDoorLayout(it)) {
         inspEl.appendChild(H('div', 'rp-sec', 'Door layout'));
         var dc2 = H('div', 'rp-chips');
-        [['split', 'Two doors'], ['full', 'One full door']].forEach(function (p) {
+        [['split', 'Top/bottom split'], ['full', 'Full-height doors']].forEach(function (p) {
           var c = H('button', 'rp-chip wide' + ((item.doorLayout || 'split') === p[0] ? ' on' : ''), p[1] + ' · ' + tallDoors(item.h || it.h, p[0]).join(' + '));
           c.addEventListener('click', function () { item.doorLayout = p[0]; push(); draw(); });
           dc2.appendChild(c);
@@ -7178,7 +7222,8 @@ function edKV(q) {
 }
 function doorCol(q) { if (!q.doorColour || q.doorColour === 'match') return cabCol(q.cabColour); return byId('doorColours', q.doorColour); }
 
-function doorSpecs(item, h, w) {
+function tallDoorColumns(w) { return Math.max(w > 500 ? 2 : 1, Math.ceil(w / 600)); }
+function doorSpecs(item, h, w, layout) {
   if (!item || !item.doors) return [];
   const c = item.code;
   const m = c.match(/^HLC\d+D(\d+)$/);
@@ -7187,17 +7232,19 @@ function doorSpecs(item, h, w) {
   if (c === 'SDW6X6') return [{ qty: 1, h: h - 5, w: 396, label: '' }];
   if (c === 'BUOH') return [{ qty: 1, h: 110, w: 596, label: 'trim' }];
   if (c === 'SAH900') return [{ qty: 1, h: 570, w: 596, label: 'bottom' }, { qty: 1, h: 500, w: 596, label: 'top' }];
-  if (/^DL/.test(c)) { const two = w > 600, fw = two ? w / 2 - 4 : w - 4, n = two ? 2 : 1; return [{ qty: n, h: 140, w: fw, label: 'drawer front' }, { qty: n, h: 570, w: fw, label: 'door' }]; }
+  if (/^DL/.test(c)) { const n = Math.max(1, Math.ceil(w / 600)), fw = w / n - 4; return [{ qty: n, h: 140, w: fw, label: 'drawer front' }, { qty: n, h: 570, w: fw, label: 'door' }]; }
   if (/D2T(INT)?$/.test(c)) return [{ qty: 2, h: 355, w: w - 4, label: 'drawer front' }];
   if (/D3T$/.test(c)) return [{ qty: 1, h: 140, w: w - 4, label: 'top drawer' }, { qty: 2, h: 283, w: w - 4, label: 'pan drawer' }];
   if (/D4T$/.test(c)) return [{ qty: 4, h: 175, w: w - 4, label: 'drawer front' }];
   if (item.cat === 'cat-tall' || c === 'SFFH600' || c === 'TFFH600') {
+    const count = tallDoorColumns(w), fw = w / count - 4;
+    if (layout === 'full') return [{qty: count, h: h - 5, w: fw, label: 'full-height'}];
     const top = Math.max(0, h - 1250) - 5, bot = 1245;
-    if (w > 600) return [{ qty: 2, h: top, w: w / 2 - 4, label: 'top' }, { qty: 2, h: bot, w: w / 2 - 4, label: 'bottom' }];
+    if (count > 1) return [{ qty: count, h: top, w: fw, label: 'top' }, { qty: count, h: bot, w: fw, label: 'bottom' }];
     return [{ qty: 1, h: top, w: w - 4, label: 'top' }, { qty: 1, h: bot, w: w - 4, label: 'bottom' }];
   }
   if (!h || !w) return [];
-  if (w > 600) return [{ qty: 2, h: h - 5, w: w / 2 - 4, label: '' }];
+  if (w > 600) { const count = Math.ceil(w / 600); return [{ qty: count, h: h - 5, w: w / count - 4, label: '' }]; }
   return [{ qty: 1, h: h - 5, w: w - 4, label: '' }];
 }
 function doorPrice(style, dcol, h, w) {
@@ -7214,7 +7261,7 @@ function lineCalc(q, line) {
   const cabUnit = (Number(item[key]) || Number(item.plain) || 0) * (1 + ((cab && cab.adj) || 0) / 100);
   const style = byId('doorStyles', q.doorStyle);
   const dc = doorCol(q);
-  const specs = style && !style.none && !line.noDoors ? doorSpecs(item, +line.h || 0, +line.w || 0) : [];
+  const specs = style && !style.none && !line.noDoors ? doorSpecs(item, +line.h || 0, +line.w || 0, line.doorLayout) : [];
   const doorPer = specs.reduce((s, sp) => s + sp.qty * doorPrice(style, dc, sp.h, sp.w), 0);
   const unit = cabUnit + doorPer;
   return { item, cabUnit, doorPer, specs, unit, total: unit * (+line.qty || 0) };
@@ -8117,7 +8164,7 @@ function tallDoors(h, layout) {
 }
 const doorLayoutOf = l => (l && l.doorLayout === 'full') ? 'full' : 'split';
 const doorLayoutTxt = (l, it) => !needsDoorLayout(it) ? '' :
-  (doorLayoutOf(l) === 'full' ? 'One full door' : 'Two doors') + ' · ' + tallDoors(l.h || it.h, doorLayoutOf(l)).join(' + ') + ' mm';
+  (tallDoorColumns(l.w || it.w) * (doorLayoutOf(l) === 'full' ? 1 : 2) + ' doors') + ' · ' + tallDoors(l.h || it.h, doorLayoutOf(l)).join(' + ') + ' mm';
 const needsSections = it => !!it && (it.sections === true || (it.sections === undefined && it.cat === 'cat-appl' && it.h >= 1500));
 const sectionTxt = (l, it) => needsSections(it) ? (l.topDoor ? 'Top door ' + l.topDoor + ' mm' : 'Top door size needed') + ' · bottom ' + (l.bottomType === 'drawer' ? 'drawer' : l.bottomType === 'door' ? 'door' : '(not chosen)') : '';
 /* Curved and splayed specials are made to a drawing: each side returns a different distance, so the customer gives both side widths. Admin can switch this on or off per item. */
@@ -8393,7 +8440,7 @@ function pickerHTML() {
   return `<div class="item-picker-filters"><div class="field"><div class="pick-h"><span class="num">1</span>Room</div><div class="chips room-chips" role="tablist" aria-label="Rooms">${rooms.map(r => `<button class="chip ${bf.room === r.id ? 'on' : ''}" data-act="pickRoom" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div></div><div class="field"><label class="pick-h" for="item-category"><span class="num">2</span>Category</label><select class="select" id="item-category" data-chg="pickCategory" ${cats.length ? '' : 'disabled'}>${cats.length ? cats.map(c => `<option value="${esc(c.id)}" ${bf.cat === c.id ? 'selected' : ''}>${esc(c.name)} (${DB.items.filter(i => i.cat === c.id && i.active).length})</option>`).join('') : '<option value="">No categories available</option>'}</select></div></div><div class="picker picker-dropdown">
     <div class="pick-items"><div class="pick-h" style="padding:12px 14px 0"><span class="num">3</span>Item<span class="val">${cn ? 'in ' + esc(cn) : ''}</span></div><div class="pick-search input-wrap">${ic('search', 16)}<input class="input" id="it-search" data-in="itemSearch" placeholder="Search ${esc((catOf(bf.cat) || {}).name || 'items')}" value="${esc(bf.search)}"></div><div class="pick-list" id="pickList">${pickListHTML()}</div></div></div>`;
 }
-function cfgCalc() { const bf = UI.bf; return lineCalc(UI.draft, { itemId: bf.itemId, qty: +bf.qty || 1, h: +bf.h || 0, w: +bf.w || 0, d: +bf.d || 0 }); }
+function cfgCalc() { const bf = UI.bf; return lineCalc(UI.draft, { itemId: bf.itemId, qty: +bf.qty || 1, h: +bf.h || 0, w: +bf.w || 0, d: +bf.d || 0, doorLayout: bf.doorLayout }); }
 function doorNoteHTML() {
   const c = cfgCalc(), st = byId('doorStyles', UI.draft.doorStyle), dc = doorCol(UI.draft);
   if (!c.item) return '';
@@ -8414,7 +8461,7 @@ function configHTML() {
     ${needsSides(it) ? (needsSideDepths(it)
       ? `<div class="config-grid" style="margin-top:12px">${u('leftW', 'Left hand width')}${u('leftD', 'Left hand depth')}${u('rightW', 'Right hand width')}${u('rightD', 'Right hand depth')}</div><p class="hint" style="margin:8px 0 0">This unit returns along both walls, so each side is measured on its own: the width it runs along the wall and how deep it comes into the room.</p>`
       : `<div class="config-grid" style="margin-top:12px">${u('leftW', 'Width of left side')}${u('rightW', 'Width of right side')}<p class="hint" style="grid-column:span 2;align-self:center;margin:0">Each side of this special is measured separately. Give the width each side returns, in mm.</p></div>`) : ''}
-    ${needsDoorLayout(it) ? (() => { const a = tallDoors(bf.h || it.h, 'split'), b = tallDoors(bf.h || it.h, 'full'); return `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-doorLayout">Door layout</label><select class="select" id="bf-doorLayout" data-in="bf" data-k="doorLayout"><option value="split" ${bf.doorLayout !== 'full' ? 'selected' : ''}>Two doors · ${a.join(' + ')} mm</option><option value="full" ${bf.doorLayout === 'full' ? 'selected' : ''}>One full door · ${b.join(' + ')} mm</option></select></div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">Standard door heights for a ${Math.round(bf.h || it.h)} mm cabinet. Two doors split top and bottom on the same hinge side; one door runs the full height.</p></div>`; })() : ''}
+    ${needsDoorLayout(it) ? (() => { const a = tallDoors(bf.h || it.h, 'split'), b = tallDoors(bf.h || it.h, 'full'); return `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-doorLayout">Door layout</label><select class="select" id="bf-doorLayout" data-in="bf" data-k="doorLayout"><option value="split" ${bf.doorLayout !== 'full' ? 'selected' : ''}>Two doors · ${a.join(' + ')} mm</option><option value="full" ${bf.doorLayout === 'full' ? 'selected' : ''}>One full door · ${b.join(' + ')} mm</option></select></div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">Standard door heights for a ${Math.round(bf.h || it.h)} mm cabinet. Doors split top and bottom or run full height. Larders over 500mm wide have left/right door columns: four split doors or two full-height doors.</p></div>`; })() : ''}
     ${needsHanging(it) ? `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-hanging">Hanging</label><select class="select" id="bf-hanging" data-in="bf" data-k="hanging"><option value="single" ${bf.hanging !== 'double' ? 'selected' : ''}>Single hanging rail</option><option value="double" ${bf.hanging === 'double' ? 'selected' : ''}>Double hanging (two rails)</option></select></div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">One full-height hanging rail, or two rails one above the other for shorter garments.</p></div>` : ''}
     ${needsHinges(it) ? `<div class="field" style="margin-top:12px"><label class="lbl" for="bf-hinges">Hinges</label><select class="select" id="bf-hinges" data-in="bf" data-k="hinges"><option value="">Choose hinges</option>${HINGE_OPTIONS.map(o => `<option value="${o[0]}" ${bf.hinges === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>` : ''}
     ${needsLegs(it) ? (() => { const L = legOptions(it); return `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-legs">Legs</label><select class="select" id="bf-legs" data-in="bf" data-k="legs">${L.length ? '' : '<option value="">None set up</option>'}${L.map(o => `<option value="${o.id}" ${bf.legs === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>${e.legs ? `<span class="err-msg">${e.legs}</span>` : ''}</div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">How this unit stands. The choices follow the room this item belongs to${it.room ? ' (' + esc(it.room) + ')' : ''}.</p></div>`; })() : ''}
