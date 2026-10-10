@@ -1040,6 +1040,9 @@ button.kpi:hover{border-color:var(--olive);box-shadow:var(--shadow-lg)}
 .rp-gap-dim{flex-direction:column;gap:1px;padding:3px 7px;border-color:#edc29e;background:#fffaf5;color:#b95d23;font-size:11px}
 .rp-gap-dim small{font:600 8px var(--font);color:#a56337;letter-spacing:.02em}
 .rp-gap-dim b{font-size:11px}
+.rp-free-space{flex-direction:column;gap:1px;padding:4px 7px;border-color:#b3d5c8;background:#f5fcf8;color:#21695f}
+.rp-free-space small{font:600 8px var(--font)}
+.rp-free-space b{font-size:11px}
 .rp-room-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:7px 10px;border-bottom:1px solid var(--line)}
 .rp-room-grid .rp-row{min-width:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:600 11px/1.4 var(--font);text-align:left}
 .rp-room-grid .rp-row>span:first-child{color:var(--muted)}
@@ -1600,7 +1603,7 @@ body.rp-open .demo-bar{display:none!important}
         out.push(line(P(w * 0.3, fy + fh * 0.62, d), P(w * 0.7, fy + fh * 0.62, d), shade(base, -0.62), 3));
       }
     } else if (kind === 'tall' && w > (MK.robe ? 600 : 500)) {
-      var cols = Math.max(2, Math.ceil(w / 600)), doorW = w / cols, mid = y0 + h * 0.63;
+      var cols = Math.max(2, Math.ceil(w / 600)), doorW = w / cols, mid = y0 + (o.splitTop ? h * (h - 10 - o.splitTop) / (h - 10) : h * 0.63);
       twoWide = true;
       for (var col = 0; col < cols; col++) {
         var right = col % 2 === 1, anchor = right ? (col + 1) * doorW : col * doorW, direction = right ? -1 : 1, angle = right ? 18 * Math.PI / 180 : OPEN;
@@ -1622,7 +1625,7 @@ body.rp-open .demo-bar{display:none!important}
       leaf(0, w, OPEN, 1, y0, y1);
     } else if (kind === 'tall') {
       // UK larders split the doors top and bottom, both on the same hinge
-      var mid = y0 + h * 0.63;
+      var mid = y0 + (o.splitTop ? h * (h - 10 - o.splitTop) / (h - 10) : h * 0.63);
       leaf(0, w, OPEN, 1, mid + 6, y1);
       leaf(0, w, OPEN, 1, y0, mid - 6);
     } else if (o.doors === 2 || w > 600) {
@@ -3175,7 +3178,7 @@ body.rp-open .demo-bar{display:none!important}
           }
         } else if (kind === 'tall') {
           var columns = Math.max(u.w > (cat === 'cat-robe' ? 600 : 500) ? 2 : 1, Math.ceil(u.w / 600)), panelW = (u.w - gap * (columns + 1)) / columns;
-          var sizes = (typeof tallDoors === 'function') ? tallDoors(u.h, 'split') : [u.h * .63, u.h * .37];
+          var sizes = (typeof tallDoors === 'function') ? tallDoors(u.h, 'split', u.splitTop) : [u.h * .63, u.h * .37];
           var topH = sizes[0], botH = sizes[1], scale = (u.h - gap * 3) / (topH + botH); topH *= scale; botH *= scale;
           for (var column = 0; column < columns; column++) {
             var px = -u.w / 2 + gap + panelW / 2 + column * (panelW + gap), panelHinge = columns > 1 ? (column % 2 ? 'left' : 'right') : hinge;
@@ -4205,7 +4208,36 @@ body.rp-open .demo-bar{display:none!important}
     });
     return [[left, u.off], [u.off + u.w, right]];
   }
+  function wallFreeSpaces(i) {
+    var length = edgeLen(i), occupied = [];
+    S.units.forEach(function (u) {
+      if (u.edgeIdx !== i || !FLOOR_KINDS[u.kind] || /HOB/i.test((itemOf(u) || {}).code || '')) return;
+      occupied.push({ a: Math.max(0, u.off), b: Math.min(length, u.off + u.w) });
+    });
+    S.openings.filter(function (o) { return o.edgeIdx === i && /door|patio/.test(o.type); }).forEach(function (o) { occupied.push({ a: Math.max(0, o.t * length - o.w / 2), b: Math.min(length, o.t * length + o.w / 2) }); });
+    occupied.sort(function (a, b) { return a.a - b.a; });
+    var free = [], end = 0;
+    occupied.forEach(function (span) { if (span.a > end) free.push({ a: end, b: span.a }); end = Math.max(end, span.b); });
+    if (end < length) free.push({ a: end, b: length });
+    return free.filter(function (span) { return span.b - span.a >= 100; });
+  }
+  function drawFreeSpaces() {
+    for (var i = 0; i < nEdges(); i++) {
+      var n = normIn(i), inset = px(300);
+      wallFreeSpaces(i).forEach(function (space) {
+        var a = P(ptOn(i, space.a)), b = P(ptOn(i, space.b));
+        a.x += n.nx * inset; a.y += n.ny * inset; b.x += n.nx * inset; b.y += n.ny * inset;
+        svg.appendChild(E('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#26766b', 'stroke-width': 1.3, 'stroke-dasharray': '5 4', 'pointer-events': 'none' }));
+        [a, b].forEach(function (p) { svg.appendChild(E('line', { x1: p.x - n.nx * 5, y1: p.y - n.ny * 5, x2: p.x + n.nx * 5, y2: p.y + n.ny * 5, stroke: '#26766b', 'stroke-width': 1.3, 'pointer-events': 'none' })); });
+        var label = H('div', 'rp-dim rp-free-space');
+        label.style.left = ((a.x + b.x) / 2) + 'px'; label.style.top = ((a.y + b.y) / 2) + 'px';
+        label.innerHTML = '<small>Free base space</small><b>' + Math.round(space.b - space.a) + ' mm</b>';
+        ov.appendChild(label);
+      });
+    }
+  }
   function drawDims() {
+    drawFreeSpaces();
     for (var i = 0; i < nEdges(); i++) {
       (function (i) {
         var n = normIn(i), L = edgeLen(i), ox = -n.nx, oy = -n.ny, segs = [];
@@ -4237,7 +4269,7 @@ body.rp-open .demo-bar{display:none!important}
     }
     if (S.sel && S.sel.k === 'unit') {
       var u = S.units.find(function (x) { return x.id === S.sel.id; });
-      if (u) {
+      if (u && !FLOOR_KINDS[u.kind]) {
         var n2 = normIn(u.edgeIdx), dir = edgeDir(u.edgeIdx), inset = px(u.d / 2);
         unitSpacing(u).forEach(function (pair, index) {
           if (pair[1] - pair[0] < 1) return;
@@ -4503,7 +4535,7 @@ body.rp-open .demo-bar{display:none!important}
         });
         g.off = assemblyOff + (assembly.width - p.w) / 2;
       }
-      S.units.push({ id: S.nid++, itemId: p.itemId, kind: p.kind, edgeIdx: g.edgeIdx, off: g.off, w: p.w, d: p.d, h: p.h, hinge: p.hinge || 'left', blank: p.blank == null ? null : p.blank, sink: p.sink || '', tap: p.tap || '', doorLayout: p.doorLayout || 'split', hanging: p.hanging || 'single', legs: p.legs || '', hinges: p.hinges || '', qty: 1 });
+      S.units.push({ id: S.nid++, itemId: p.itemId, kind: p.kind, edgeIdx: g.edgeIdx, off: g.off, w: p.w, d: p.d, h: p.h, hinge: p.hinge || 'left', blank: p.blank == null ? null : p.blank, sink: p.sink || '', tap: p.tap || '', doorLayout: p.doorLayout || 'split', splitTop: p.splitTop || null, hanging: p.hanging || 'single', legs: p.legs || '', hinges: p.hinges || '', qty: 1 });
       if (assembly) { S.units[S.units.length - 1].cookingGroup = group; flash('Matching ' + assembly.width + 'mm base and extractor added with the hob'); }
       S.sel = { k: 'unit', id: S.nid - 1 }; S.inspOpen = false;
     } else {
@@ -4870,6 +4902,17 @@ body.rp-open .demo-bar{display:none!important}
       rebuild(); fit(); push(); draw();
     }); panel.appendChild(create); sideEl.appendChild(panel);
   }
+  function splitDoorControls(container, unit, it, changed) {
+    if ((unit.doorLayout || 'split') !== 'split') return;
+    var height = unit.h || it.h, total = height - 10;
+    var sizes = tallDoors(height, 'split', unit.splitTop);
+    [['Top door height (mm)', 0], ['Bottom door height (mm)', 1]].forEach(function (field) {
+      var row = H('div', 'rp-f', '<label>' + field[0] + '</label>');
+      var input = H('input'); input.type = 'number'; input.min = 100; input.max = total - 100; input.value = sizes[field[1]];
+      input.addEventListener('change', function () { var val = Math.max(100, Math.min(total - 100, +input.value || sizes[field[1]])); unit.splitTop = field[1] === 0 ? val : total - val; changed(); });
+      row.appendChild(input); container.appendChild(row);
+    });
+  }
   function sideRoom() {
     if (S.fixKey) {
       var b = H('button', 'rp-row click', '<span>&larr; Back to room features</span>');
@@ -4944,7 +4987,7 @@ body.rp-open .demo-bar{display:none!important}
     if (typeof UnitArt !== 'undefined' && kindOf(item) !== 'extra') {
       return UnitArt.svg({
         w: +item.w || 600, d: +item.d || 570, h: +item.h || 720,
-        kind: kindOf(item), cat: item.cat, hinge: hinge || 'left', doorLayout: (S && S.detail && S.detail.id === item.id) ? (S.detail.doorLayout || 'split') : 'split', hanging: (S && S.detail && S.detail.id === item.id) ? (S.detail.hanging || 'single') : 'single', w: +item.w || 600,
+        kind: kindOf(item), cat: item.cat, splitTop: (S.detail && S.detail.id === item.id) ? S.detail.splitTop : null, hinge: hinge || 'left', doorLayout: (S && S.detail && S.detail.id === item.id) ? (S.detail.doorLayout || 'split') : 'split', hanging: (S && S.detail && S.detail.id === item.id) ? (S.detail.hanging || 'single') : 'single', w: +item.w || 600,
         shape: unitShape({ kind: kindOf(item), w: +item.w || 600, d: +item.d || 570, itemId: item.id, shape: null }),
         profile: doorProfile(), colour: doorHex(), label: item.name
       });
@@ -5062,12 +5105,12 @@ body.rp-open .demo-bar{display:none!important}
       sideEl.appendChild(H('div', 'rp-sec', 'Door layout'));
       var dlc = H('div', 'rp-chips');
       [['split', 'Top/bottom split'], ['full', 'Full-height doors']].forEach(function (p) {
-        var sz = tallDoors(it.h, p[0]).join(' + ');
+        var sz = tallDoors(it.h, p[0], S.detail.splitTop).join(' + ');
         var c = H('button', 'rp-chip wide' + ((S.detail.doorLayout || 'split') === p[0] ? ' on' : ''), p[1] + ' · ' + sz);
         c.addEventListener('click', function () { S.detail.doorLayout = p[0]; renderSide(); });
         dlc.appendChild(c);
       });
-      sideEl.appendChild(dlc);
+      sideEl.appendChild(dlc); splitDoorControls(sideEl, S.detail, it, renderSide);
       sideEl.appendChild(H('div', 'rp-note', 'Standard door heights for a ' + Math.round(it.h) + 'mm cabinet.'));
     }
     if (sinkable(it, kindOf(it))) {
@@ -5106,7 +5149,7 @@ body.rp-open .demo-bar{display:none!important}
     var add = H('button', 'rp-add', 'ADD TO PLAN');
     add.addEventListener('click', function () {
       if (typeof needsBlank === 'function' && needsBlank(it) && (S.detail.blank == null || S.detail.blank === '')) { flash('Enter the blank size for this corner unit first'); return; }
-      S.pending = { mode: 'unit', itemId: it.id, kind: kindOf(it), w: +it.w, d: +it.d, h: +it.h || 720, hinge: hinge, blank: S.detail.blank, sink: S.detail.sink || '', tap: S.detail.tap || '', doorLayout: S.detail.doorLayout || 'split', hanging: S.detail.hanging || 'single', legs: S.detail.legs || '', hinges: S.detail.hinges || '' };
+      S.pending = { mode: 'unit', itemId: it.id, kind: kindOf(it), w: +it.w, d: +it.d, h: +it.h || 720, hinge: hinge, blank: S.detail.blank, sink: S.detail.sink || '', tap: S.detail.tap || '', doorLayout: S.detail.doorLayout || 'split', splitTop: S.detail.splitTop || null, hanging: S.detail.hanging || 'single', legs: S.detail.legs || '', hinges: S.detail.hinges || '' };
       S.ghost = null; S.detail = null;
       collapseSheet();
       draw(); flash(touchy() ? 'Tap a wall to drop it in' : 'Move to a wall and click to place');
@@ -5547,11 +5590,11 @@ body.rp-open .demo-bar{display:none!important}
         inspEl.appendChild(H('div', 'rp-sec', 'Door layout'));
         var dc2 = H('div', 'rp-chips');
         [['split', 'Top/bottom split'], ['full', 'Full-height doors']].forEach(function (p) {
-          var c = H('button', 'rp-chip wide' + ((item.doorLayout || 'split') === p[0] ? ' on' : ''), p[1] + ' · ' + tallDoors(item.h || it.h, p[0]).join(' + '));
+          var c = H('button', 'rp-chip wide' + ((item.doorLayout || 'split') === p[0] ? ' on' : ''), p[1] + ' · ' + tallDoors(item.h || it.h, p[0], item.splitTop).join(' + '));
           c.addEventListener('click', function () { item.doorLayout = p[0]; push(); draw(); });
           dc2.appendChild(c);
         });
-        inspEl.appendChild(dc2);
+        inspEl.appendChild(dc2); splitDoorControls(inspEl, item, it, function () { push(); draw(); });
       }
       if (sinkable(it, item.kind)) {
         inspEl.appendChild(H('div', 'rp-sec', 'Sink'));
@@ -5685,8 +5728,8 @@ body.rp-open .demo-bar{display:none!important}
       var it = itemOf(u); if (!it) return;
       var returning = unitShape(u) === 'L' || unitShape(u) === 'diag';
       var sides = returning ? { leftW: Math.round(u.w), rightW: Math.round(u.d), leftD: Math.round(Math.min(u.leftD || unitLeg(u), u.d - 100)), rightD: Math.round(Math.min(u.rightD || unitLeg(u), u.w - 100)) } : {};
-      var key = it.id + '|' + Math.round(u.w) + '|' + Math.round(u.h) + '|' + Math.round(u.d) + '|' + (u.blank == null ? '' : u.blank) + '|' + (u.doorLayout || '') + '|' + (u.legs || '') + '|' + (u.hanging || '') + '|' + (u.hinges || '') + '|' + unitShape(u) + '|' + JSON.stringify(sides);
-      if (!map[key]) map[key] = { itemId: it.id, w: Math.round(u.w), h: Math.round(u.h), d: Math.round(u.d), blank: u.blank == null ? null : u.blank, doorLayout: u.doorLayout || 'split', legs: u.legs || '', hinges: u.hinges || '', hanging: u.hanging || 'single', ids: [], qty: 0 };
+      var key = it.id + '|' + Math.round(u.w) + '|' + Math.round(u.h) + '|' + Math.round(u.d) + '|' + (u.blank == null ? '' : u.blank) + '|' + (u.doorLayout || '') + '|' + (u.legs || '') + '|' + (u.hanging || '') + '|' + (u.splitTop || '') + '|' + (u.hinges || '') + '|' + unitShape(u) + '|' + JSON.stringify(sides);
+      if (!map[key]) map[key] = { itemId: it.id, w: Math.round(u.w), h: Math.round(u.h), d: Math.round(u.d), blank: u.blank == null ? null : u.blank, doorLayout: u.doorLayout || 'split', splitTop: u.splitTop || null, legs: u.legs || '', hinges: u.hinges || '', hanging: u.hanging || 'single', ids: [], qty: 0 };
       map[key].ids.push(u.id);
       Object.assign(map[key], sides);
       if (returning) map[key].blank = null;
@@ -7223,7 +7266,7 @@ function edKV(q) {
 function doorCol(q) { if (!q.doorColour || q.doorColour === 'match') return cabCol(q.cabColour); return byId('doorColours', q.doorColour); }
 
 function tallDoorColumns(w) { return Math.max(w > 500 ? 2 : 1, Math.ceil(w / 600)); }
-function doorSpecs(item, h, w, layout) {
+function doorSpecs(item, h, w, layout, splitTop) {
   if (!item || !item.doors) return [];
   const c = item.code;
   const m = c.match(/^HLC\d+D(\d+)$/);
@@ -7239,7 +7282,8 @@ function doorSpecs(item, h, w, layout) {
   if (item.cat === 'cat-tall' || c === 'SFFH600' || c === 'TFFH600') {
     const count = tallDoorColumns(w), fw = w / count - 4;
     if (layout === 'full') return [{qty: count, h: h - 5, w: fw, label: 'full-height'}];
-    const top = Math.max(0, h - 1250) - 5, bot = 1245;
+    const custom = splitTop ? tallDoors(h, 'split', splitTop) : null;
+    const top = custom ? custom[0] : Math.max(0, h - 1250) - 5, bot = custom ? custom[1] : 1245;
     if (count > 1) return [{ qty: count, h: top, w: fw, label: 'top' }, { qty: count, h: bot, w: fw, label: 'bottom' }];
     return [{ qty: 1, h: top, w: w - 4, label: 'top' }, { qty: 1, h: bot, w: w - 4, label: 'bottom' }];
   }
@@ -7261,7 +7305,7 @@ function lineCalc(q, line) {
   const cabUnit = (Number(item[key]) || Number(item.plain) || 0) * (1 + ((cab && cab.adj) || 0) / 100);
   const style = byId('doorStyles', q.doorStyle);
   const dc = doorCol(q);
-  const specs = style && !style.none && !line.noDoors ? doorSpecs(item, +line.h || 0, +line.w || 0, line.doorLayout) : [];
+  const specs = style && !style.none && !line.noDoors ? doorSpecs(item, +line.h || 0, +line.w || 0, line.doorLayout, line.splitTop) : [];
   const doorPer = specs.reduce((s, sp) => s + sp.qty * doorPrice(style, dc, sp.h, sp.w), 0);
   const unit = cabUnit + doorPer;
   return { item, cabUnit, doorPer, specs, unit, total: unit * (+line.qty || 0) };
@@ -8155,8 +8199,9 @@ const blankTxt = (l, it) => needsBlank(it) ? (l.blank == null || l.blank === '' 
 /* Tall cabinets take either one full-height door or the standard pair, top and
    bottom. The sizes are the supplier's own door heights: a 1970 high cabinet is
    1970 in one door or 1245 + 715 in two; a 2150 is 2155, or 1245 + 895. */
-function tallDoors(h, layout) {
+function tallDoors(h, layout, splitTop) {
   const H = Math.round(+h || 0), full = layout === 'full';
+  if (!full && Number(splitTop) > 0) { const top = Math.max(100, Math.min(H - 110, Math.round(splitTop))); return [top, H - 10 - top]; }
   if (H >= 2100) return full ? [2155] : [1245, 895];
   if (H >= 1900) return full ? [1970] : [1245, 715];
   if (H >= 1300) return full ? [H - 15] : [Math.round((H - 25) * 0.63), Math.round((H - 25) * 0.37)];
@@ -8164,7 +8209,7 @@ function tallDoors(h, layout) {
 }
 const doorLayoutOf = l => (l && l.doorLayout === 'full') ? 'full' : 'split';
 const doorLayoutTxt = (l, it) => !needsDoorLayout(it) ? '' :
-  (tallDoorColumns(l.w || it.w) * (doorLayoutOf(l) === 'full' ? 1 : 2) + ' doors') + ' · ' + tallDoors(l.h || it.h, doorLayoutOf(l)).join(' + ') + ' mm';
+  (tallDoorColumns(l.w || it.w) * (doorLayoutOf(l) === 'full' ? 1 : 2) + ' doors') + ' · ' + tallDoors(l.h || it.h, doorLayoutOf(l), l.splitTop).join(' + ') + ' mm';
 const needsSections = it => !!it && (it.sections === true || (it.sections === undefined && it.cat === 'cat-appl' && it.h >= 1500));
 const sectionTxt = (l, it) => needsSections(it) ? (l.topDoor ? 'Top door ' + l.topDoor + ' mm' : 'Top door size needed') + ' · bottom ' + (l.bottomType === 'drawer' ? 'drawer' : l.bottomType === 'door' ? 'door' : '(not chosen)') : '';
 /* Curved and splayed specials are made to a drawing: each side returns a different distance, so the customer gives both side widths. Admin can switch this on or off per item. */
@@ -8199,7 +8244,7 @@ function sidesTxt(l, it) {
   const side = (w, d) => (+w || 0) + (needsSideDepths(it) ? ' × ' + (+d || 0) : '') + ' mm';
   return 'Left hand ' + side(l.leftW, l.leftD) + ' · right hand ' + side(l.rightW, l.rightD);
 }
-function newBf() { return { room: 'rm-1', cat: 'cat-base', itemId: null, qty: 1, h: '', w: '', d: '', blank: '', topDoor: '', bottomType: 'door', leftW: '', rightW: '', doorLayout: 'split', hanging: 'single', legs: '', hinges: '', leftD: '', rightD: '', comment: '', remarks: '', editing: null, search: '' }; }
+function newBf() { return { room: 'rm-1', cat: 'cat-base', itemId: null, qty: 1, h: '', w: '', d: '', blank: '', topDoor: '', bottomType: 'door', leftW: '', rightW: '', doorLayout: 'split', splitTop: null, hanging: 'single', legs: '', hinges: '', leftD: '', rightD: '', comment: '', remarks: '', editing: null, search: '' }; }
 function startQuote() {
   UI.draft = newDraft(me()); UI.bf = newBf(); UI.bs = { step: 1, max: 1 }; UI.cbx = null;
   if (UI.preCat && catOf(UI.preCat)) { const cat = catOf(UI.preCat); UI.bf.cat = cat.id; if (cat.rooms[0] !== 'all') UI.bf.room = cat.rooms[0]; }
@@ -8440,7 +8485,8 @@ function pickerHTML() {
   return `<div class="item-picker-filters"><div class="field"><div class="pick-h"><span class="num">1</span>Room</div><div class="chips room-chips" role="tablist" aria-label="Rooms">${rooms.map(r => `<button class="chip ${bf.room === r.id ? 'on' : ''}" data-act="pickRoom" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div></div><div class="field"><label class="pick-h" for="item-category"><span class="num">2</span>Category</label><select class="select" id="item-category" data-chg="pickCategory" ${cats.length ? '' : 'disabled'}>${cats.length ? cats.map(c => `<option value="${esc(c.id)}" ${bf.cat === c.id ? 'selected' : ''}>${esc(c.name)} (${DB.items.filter(i => i.cat === c.id && i.active).length})</option>`).join('') : '<option value="">No categories available</option>'}</select></div></div><div class="picker picker-dropdown">
     <div class="pick-items"><div class="pick-h" style="padding:12px 14px 0"><span class="num">3</span>Item<span class="val">${cn ? 'in ' + esc(cn) : ''}</span></div><div class="pick-search input-wrap">${ic('search', 16)}<input class="input" id="it-search" data-in="itemSearch" placeholder="Search ${esc((catOf(bf.cat) || {}).name || 'items')}" value="${esc(bf.search)}"></div><div class="pick-list" id="pickList">${pickListHTML()}</div></div></div>`;
 }
-function cfgCalc() { const bf = UI.bf; return lineCalc(UI.draft, { itemId: bf.itemId, qty: +bf.qty || 1, h: +bf.h || 0, w: +bf.w || 0, d: +bf.d || 0, doorLayout: bf.doorLayout }); }
+CH.splitDoorHeight = t => { const h = +UI.bf.h || 1970, total = h - 10, val = Math.max(100, Math.min(total - 100, +t.value || 100)); UI.bf.splitTop = t.dataset.side === '0' ? val : total - val; $('#bConfig').innerHTML = configHTML(); save(); };
+function cfgCalc() { const bf = UI.bf; return lineCalc(UI.draft, { itemId: bf.itemId, qty: +bf.qty || 1, h: +bf.h || 0, w: +bf.w || 0, d: +bf.d || 0, doorLayout: bf.doorLayout, splitTop: bf.splitTop }); }
 function doorNoteHTML() {
   const c = cfgCalc(), st = byId('doorStyles', UI.draft.doorStyle), dc = doorCol(UI.draft);
   if (!c.item) return '';
@@ -8462,6 +8508,7 @@ function configHTML() {
       ? `<div class="config-grid" style="margin-top:12px">${u('leftW', 'Left hand width')}${u('leftD', 'Left hand depth')}${u('rightW', 'Right hand width')}${u('rightD', 'Right hand depth')}</div><p class="hint" style="margin:8px 0 0">This unit returns along both walls, so each side is measured on its own: the width it runs along the wall and how deep it comes into the room.</p>`
       : `<div class="config-grid" style="margin-top:12px">${u('leftW', 'Width of left side')}${u('rightW', 'Width of right side')}<p class="hint" style="grid-column:span 2;align-self:center;margin:0">Each side of this special is measured separately. Give the width each side returns, in mm.</p></div>`) : ''}
     ${needsDoorLayout(it) ? (() => { const a = tallDoors(bf.h || it.h, 'split'), b = tallDoors(bf.h || it.h, 'full'); return `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-doorLayout">Door layout</label><select class="select" id="bf-doorLayout" data-in="bf" data-k="doorLayout"><option value="split" ${bf.doorLayout !== 'full' ? 'selected' : ''}>Two doors · ${a.join(' + ')} mm</option><option value="full" ${bf.doorLayout === 'full' ? 'selected' : ''}>One full door · ${b.join(' + ')} mm</option></select></div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">Standard door heights for a ${Math.round(bf.h || it.h)} mm cabinet. Doors split top and bottom or run full height. Larders over 500mm wide have left/right door columns: four split doors or two full-height doors.</p></div>`; })() : ''}
+    ${needsDoorLayout(it) && doorLayoutOf(bf) === 'split' ? (() => { const sz = tallDoors(bf.h || it.h, 'split', bf.splitTop); return '<div class="grid2" style="margin-top:12px">' + ['Top','Bottom'].map((name,i) => '<div class="field"><label class="lbl" for="split-door-' + i + '">' + name + ' door height (mm)</label><input class="input" id="split-door-' + i + '" type="number" min="100" max="' + ((+bf.h || it.h) - 110) + '" value="' + sz[i] + '" data-chg="splitDoorHeight" data-side="' + i + '"></div>').join('') + '</div>'; })() : ''}
     ${needsHanging(it) ? `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-hanging">Hanging</label><select class="select" id="bf-hanging" data-in="bf" data-k="hanging"><option value="single" ${bf.hanging !== 'double' ? 'selected' : ''}>Single hanging rail</option><option value="double" ${bf.hanging === 'double' ? 'selected' : ''}>Double hanging (two rails)</option></select></div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">One full-height hanging rail, or two rails one above the other for shorter garments.</p></div>` : ''}
     ${needsHinges(it) ? `<div class="field" style="margin-top:12px"><label class="lbl" for="bf-hinges">Hinges</label><select class="select" id="bf-hinges" data-in="bf" data-k="hinges"><option value="">Choose hinges</option>${HINGE_OPTIONS.map(o => `<option value="${o[0]}" ${bf.hinges === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>` : ''}
     ${needsLegs(it) ? (() => { const L = legOptions(it); return `<div class="config-grid" style="margin-top:12px"><div class="field"><label class="lbl" for="bf-legs">Legs</label><select class="select" id="bf-legs" data-in="bf" data-k="legs">${L.length ? '' : '<option value="">None set up</option>'}${L.map(o => `<option value="${o.id}" ${bf.legs === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>${e.legs ? `<span class="err-msg">${e.legs}</span>` : ''}</div><p class="hint" style="grid-column:span 3;align-self:center;margin:0">How this unit stands. The choices follow the room this item belongs to${it.room ? ' (' + esc(it.room) + ')' : ''}.</p></div>`; })() : ''}
@@ -8490,7 +8537,7 @@ A.pickRoom = t => { UI.bf.room = t.dataset.id; UI.bf.search = ''; $$('.room-chip
 A.pickCat = t => { UI.bf.cat = t.dataset.id; UI.bf.search = ''; $('#picker').innerHTML = pickerHTML(); drawPath(); };
 CH.pickCategory = t => { A.pickCat({ dataset: { id: t.value } }); const select = $('#item-category'); if (select) select.focus(); };
 IN.itemSearch = t => { UI.bf.search = t.value; $('#pickList').innerHTML = pickListHTML(); };
-A.pickItem = t => { const it = byId('items', t.dataset.id); const ed = UI.bf.editing; Object.assign(UI.bf, { itemId: it.id, h: it.h, w: it.w, d: it.d, blank: ed ? UI.bf.blank : '', topDoor: ed ? UI.bf.topDoor : '', bottomType: ed ? UI.bf.bottomType : 'door', leftW: ed ? UI.bf.leftW : '', rightW: ed ? UI.bf.rightW : '', leftD: ed ? UI.bf.leftD : '', rightD: ed ? UI.bf.rightD : '', doorLayout: ed ? UI.bf.doorLayout : 'split', hanging: ed ? UI.bf.hanging : 'single', hinges: ed ? UI.bf.hinges : '', legs: ed ? UI.bf.legs : ((legOptions(it)[0] || {}).id || ''), qty: ed ? UI.bf.qty : 1, comment: ed ? UI.bf.comment : '', remarks: ed ? UI.bf.remarks : '' }); delete UI.errors.item; $$('.pick-it').forEach(b => b.classList.toggle('on', b.dataset.id === it.id)); $('#bConfig').innerHTML = configHTML(); drawPath(); if (window.innerWidth < 900) $('#cfgBox').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
+A.pickItem = t => { const it = byId('items', t.dataset.id); const ed = UI.bf.editing; Object.assign(UI.bf, { itemId: it.id, h: it.h, w: it.w, d: it.d, blank: ed ? UI.bf.blank : '', topDoor: ed ? UI.bf.topDoor : '', bottomType: ed ? UI.bf.bottomType : 'door', leftW: ed ? UI.bf.leftW : '', rightW: ed ? UI.bf.rightW : '', leftD: ed ? UI.bf.leftD : '', rightD: ed ? UI.bf.rightD : '', doorLayout: ed ? UI.bf.doorLayout : 'split', splitTop: ed ? UI.bf.splitTop : null, hanging: ed ? UI.bf.hanging : 'single', hinges: ed ? UI.bf.hinges : '', legs: ed ? UI.bf.legs : ((legOptions(it)[0] || {}).id || ''), qty: ed ? UI.bf.qty : 1, comment: ed ? UI.bf.comment : '', remarks: ed ? UI.bf.remarks : '' }); delete UI.errors.item; $$('.pick-it').forEach(b => b.classList.toggle('on', b.dataset.id === it.id)); $('#bConfig').innerHTML = configHTML(); drawPath(); if (window.innerWidth < 900) $('#cfgBox').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
 IN.bf = t => { UI.bf[t.dataset.k] = t.value; if (['qty', 'h', 'w', 'd'].includes(t.dataset.k)) { const p = $('#cfgPrice'); if (p) p.innerHTML = cfgPriceHTML(); const n = $('#doorNote'); if (n) n.innerHTML = doorNoteHTML(); if (UI.errors[t.dataset.k]) { delete UI.errors[t.dataset.k]; t.classList.remove('err'); } } };
 A.qtyStep = t => { UI.bf.qty = Math.max(1, (+UI.bf.qty || 1) + (+t.dataset.v)); $('#bf-qty').value = UI.bf.qty; $('#cfgPrice').innerHTML = cfgPriceHTML(); };
 A.addLine = () => {
@@ -8515,7 +8562,7 @@ A.addLine = () => {
   }
   UI.errors = e;
   if (Object.keys(e).length) { $('#bConfig').innerHTML = configHTML(); toast(Object.values(e)[0], { err: 1 }); return; }
-  const line = { id: bf.editing || uid('ln'), itemId: it.id, qty: Math.round(+bf.qty), h: +bf.h || 0, w: +bf.w || 0, d: +bf.d || 0, blank: needsBlank(it) ? +bf.blank : null, topDoor: needsSections(it) ? +bf.topDoor : null, bottomType: needsSections(it) ? (bf.bottomType === 'drawer' ? 'drawer' : 'door') : null, leftW: needsSides(it) ? +bf.leftW : null, rightW: needsSides(it) ? +bf.rightW : null, leftD: needsSideDepths(it) ? +bf.leftD : null, rightD: needsSideDepths(it) ? +bf.rightD : null, doorLayout: needsDoorLayout(it) ? doorLayoutOf(bf) : null, hanging: needsHanging(it) ? hangingOf(bf) : null, hinges: needsHinges(it) ? (bf.hinges || null) : null, legs: needsLegs(it) ? (bf.legs || null) : null, comment: bf.comment.trim(), remarks: '', noDoors: bf.editing ? !!(UI.draft.lines.find(l => l.id === bf.editing) || {}).noDoors : false, files: bf.editing ? ((UI.draft.lines.find(l => l.id === bf.editing) || {}).files || []) : [] };
+  const line = { id: bf.editing || uid('ln'), itemId: it.id, qty: Math.round(+bf.qty), h: +bf.h || 0, w: +bf.w || 0, d: +bf.d || 0, blank: needsBlank(it) ? +bf.blank : null, topDoor: needsSections(it) ? +bf.topDoor : null, bottomType: needsSections(it) ? (bf.bottomType === 'drawer' ? 'drawer' : 'door') : null, leftW: needsSides(it) ? +bf.leftW : null, rightW: needsSides(it) ? +bf.rightW : null, leftD: needsSideDepths(it) ? +bf.leftD : null, rightD: needsSideDepths(it) ? +bf.rightD : null, doorLayout: needsDoorLayout(it) ? doorLayoutOf(bf) : null, splitTop: needsDoorLayout(it) && bf.splitTop ? +bf.splitTop : null, hanging: needsHanging(it) ? hangingOf(bf) : null, hinges: needsHinges(it) ? (bf.hinges || null) : null, legs: needsLegs(it) ? (bf.legs || null) : null, comment: bf.comment.trim(), remarks: '', noDoors: bf.editing ? !!(UI.draft.lines.find(l => l.id === bf.editing) || {}).noDoors : false, files: bf.editing ? ((UI.draft.lines.find(l => l.id === bf.editing) || {}).files || []) : [] };
   const d = UI.draft, c = me();
   if (bf.editing) { const i = d.lines.findIndex(l => l.id === bf.editing), was = d.lines[i]; line.fromPlan = !!was.fromPlan; line.planIds = was.planIds || []; d.lines[i] = line; const synced = applyLineToPlan(line); tlog(d, `Line updated: ${line.qty} × ${it.name}`, c.contact); toast(synced ? `Updated ${line.qty} × ${it.name}, and the room plan with it` : `Updated ${line.qty} × ${it.name}`); }
   else { d.lines.push(line); tlog(d, `Item added: ${line.qty} × ${it.name}`, c.contact); toast(`Added ${line.qty} × ${it.name} to the quote`); }
@@ -8523,7 +8570,7 @@ A.addLine = () => {
   Object.assign(bf, { editing: null, qty: 1, comment: '', remarks: '', h: it.h, w: it.w, d: it.d, blank: '', topDoor: '', bottomType: 'door', leftW: '', rightW: '', leftD: '', rightD: '', doorLayout: 'split', hanging: 'single', legs: '', hinges: '' });
   UI.flashLine = line.id; drawStep3(); UI.flashLine = null; save();
 };
-A.editLine = t => { const l = UI.draft.lines.find(x => x.id === t.dataset.id), it = byId('items', l.itemId); if (!it) { toast('That item is no longer in the catalogue. Delete the line and choose another.', { err: 1 }); return; } const cat = catOf(it.cat); if (cat && !cat.rooms.includes('all') && !cat.rooms.includes(UI.bf.room)) UI.bf.room = cat.rooms[0]; Object.assign(UI.bf, { cat: it.cat, itemId: it.id, qty: l.qty, h: l.h, w: l.w, d: l.d, blank: l.blank == null ? '' : l.blank, topDoor: l.topDoor == null ? '' : l.topDoor, bottomType: l.bottomType || 'door', leftW: l.leftW == null ? '' : l.leftW, rightW: l.rightW == null ? '' : l.rightW, leftD: l.leftD == null ? '' : l.leftD, rightD: l.rightD == null ? '' : l.rightD, doorLayout: doorLayoutOf(l), hanging: hangingOf(l), hinges: l.hinges || '', legs: l.legs || ((legOptions(it)[0] || {}).id || ''), comment: l.comment, remarks: l.remarks, editing: l.id, search: '' }); UI.errors = {}; $$('.room-chips .chip').forEach(c => c.classList.toggle('on', c.dataset.id === UI.bf.room)); drawStep3(); $('#bConfig').scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+A.editLine = t => { const l = UI.draft.lines.find(x => x.id === t.dataset.id), it = byId('items', l.itemId); if (!it) { toast('That item is no longer in the catalogue. Delete the line and choose another.', { err: 1 }); return; } const cat = catOf(it.cat); if (cat && !cat.rooms.includes('all') && !cat.rooms.includes(UI.bf.room)) UI.bf.room = cat.rooms[0]; Object.assign(UI.bf, { cat: it.cat, itemId: it.id, qty: l.qty, h: l.h, w: l.w, d: l.d, blank: l.blank == null ? '' : l.blank, topDoor: l.topDoor == null ? '' : l.topDoor, bottomType: l.bottomType || 'door', leftW: l.leftW == null ? '' : l.leftW, rightW: l.rightW == null ? '' : l.rightW, leftD: l.leftD == null ? '' : l.leftD, rightD: l.rightD == null ? '' : l.rightD, doorLayout: doorLayoutOf(l), splitTop: l.splitTop || null, hanging: hangingOf(l), hinges: l.hinges || '', legs: l.legs || ((legOptions(it)[0] || {}).id || ''), comment: l.comment, remarks: l.remarks, editing: l.id, search: '' }); UI.errors = {}; $$('.room-chips .chip').forEach(c => c.classList.toggle('on', c.dataset.id === UI.bf.room)); drawStep3(); $('#bConfig').scrollIntoView({ block: 'center', behavior: 'smooth' }); };
 A.cancelEdit = () => { UI.bf.editing = null; UI.bf.qty = 1; UI.bf.comment = ''; UI.bf.remarks = ''; $('#bConfig').innerHTML = configHTML(); };
 A.dupLine = t => { const d = UI.draft, i = d.lines.findIndex(x => x.id === t.dataset.id), copy = { ...d.lines[i], id: uid('ln'), files: [], fromPlan: false, planIds: [], comment: (d.lines[i].comment || '').replace('From room planner', '').trim() }; d.lines.splice(i + 1, 0, copy); const it = byId('items', copy.itemId); tlog(d, `Line duplicated: ${copy.qty} × ${it ? it.name : 'item'}`, me().contact); UI.flashLine = copy.id; drawStep3(); UI.flashLine = null; save(); toast('Line duplicated'); };
 A.delLine = t => { const d = UI.draft, i = d.lines.findIndex(x => x.id === t.dataset.id), l = d.lines[i], it = byId('items', l.itemId); if (l.fromPlan && d.roomPlan && Array.isArray(d.roomPlan.units) && (l.planIds || []).length) { d.roomPlan.units = d.roomPlan.units.filter(u => (l.planIds || []).indexOf(u.id) < 0); d.roomPlan.savedAt = Date.now(); } d.lines.splice(i, 1); if (UI.bf.editing === l.id) UI.bf.editing = null; tlog(d, `Line removed: ${l.qty} × ${it ? it.name : 'item'}`, me().contact); drawStep3(); save(); toast(`Removed ${it ? it.name : 'line'}`, { action: { label: 'Undo', fn: () => { d.lines.splice(i, 0, l); d.timeline.pop(); drawStep3(); save(); } } }); };
@@ -9489,7 +9536,7 @@ A.planRoom = () => {
 function syncPlanLines(lines, plan) {
   const d = UI.draft; if (!d) return;
   if (plan) d.roomPlan = plan;
-  const keyOf = l => [l.itemId, l.h, l.w, l.d, l.blank ?? '', l.doorLayout || '', l.legs || '', l.hinges || '', l.hanging || ''].join('|');
+  const keyOf = l => [l.itemId, l.h, l.w, l.d, l.blank ?? '', l.doorLayout || '', l.splitTop || '', l.legs || '', l.hinges || '', l.hanging || ''].join('|');
   const old = {}; d.lines.filter(l => l.fromPlan).forEach(l => old[keyOf(l)] = l);
   const kept = d.lines.filter(l => !l.fromPlan);
   const made = lines.map(l => {
@@ -9498,7 +9545,7 @@ function syncPlanLines(lines, plan) {
     return {
       id: uid('ln'), itemId: l.itemId, qty: l.qty, h: l.h, w: l.w, d: l.d,
       blank: l.blank == null ? null : l.blank, topDoor: null, bottomType: null, leftW: null, rightW: null, leftD: null, rightD: null,
-      doorLayout: l.doorLayout || 'split', legs: l.legs || null, hinges: l.hinges || null, hanging: l.hanging || 'single',
+      doorLayout: l.doorLayout || 'split', splitTop: l.splitTop || null, legs: l.legs || null, hinges: l.hinges || null, hanging: l.hanging || 'single',
       comment: 'From room planner', remarks: '', noDoors: false, files: [], fromPlan: true, planIds: l.ids || []
     };
   });
@@ -9526,6 +9573,7 @@ function applyLineToPlan(line) {
     if (line.blank !== undefined) u.blank = line.blank;
     if (line.doorLayout) u.doorLayout = line.doorLayout;
     if (line.hanging) u.hanging = line.hanging;
+    if (line.splitTop !== undefined) u.splitTop = line.splitTop;
     if (line.legs !== undefined) u.legs = line.legs || '';
     if (line.hinges !== undefined) u.hinges = line.hinges || '';
     fit(u);
